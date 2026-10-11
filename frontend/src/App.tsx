@@ -5,12 +5,15 @@ import { errorMessage, isApiError, type PlanRequest, type PlanResponse } from '@
 import { useHeatmap, usePlan, useServerStatus } from '@/api/queries'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { ForecastSlider } from '@/features/heatmap/ForecastSlider'
+import { planSummary } from '@/features/layout/plan-summary'
+import { TripPanel } from '@/features/layout/TripPanel'
 import { Legend } from '@/features/map/Legend'
 import { MapErrorBoundary } from '@/features/map/MapErrorBoundary'
 import { Recommendation } from '@/features/results/Recommendation'
 import { RouteCards } from '@/features/results/RouteCards'
 import { TripForm } from '@/features/trip-form/TripForm'
 import { formatDateTime, formatNumber } from '@/lib/format'
+import { cn } from '@/lib/utils'
 import { useUiStore } from '@/store/ui-store'
 
 // The form paints before the map libraries download.
@@ -18,6 +21,8 @@ const TripMap = lazy(() => import('@/features/map/TripMap'))
 
 export default function App() {
   const [trip, setTrip] = useState<PlanRequest | null>(null)
+  // Phone only: the sheet starts raised on the form and lowers itself when a plan arrives.
+  const [sheetOpen, setSheetOpen] = useState(true)
   const plan = usePlan(trip)
   const heatmap = useHeatmap(plan.data)
   const server = useServerStatus()
@@ -28,30 +33,35 @@ export default function App() {
   const heatmapMetric = useUiStore((s) => s.heatmapMetric)
   const simulated = plan.data?.trip.weather_source === 'simulated'
 
-  // A new plan focuses the recommended route (or the top-ranked one), stops playback and
-  // rewinds the slider.
+  // A new plan focuses the recommended route (or the top-ranked one), stops playback,
+  // rewinds the slider and, on a phone, lowers the sheet so the map shows the routes.
   useEffect(() => {
     if (plan.data && !plan.isPlaceholderData) {
       selectRoute(plan.data.recommendation.route ?? plan.data.ranking[0] ?? null)
       setPlaying(false)
       setHour(0)
+      setSheetOpen(false)
     }
   }, [plan.data, plan.isPlaceholderData, selectRoute, setPlaying, setHour])
 
   return (
-    <div className="flex h-dvh flex-col">
-      <header className="flex items-center justify-between gap-4 border-b px-4 py-2">
+    <div className="flex h-dvh flex-col overflow-hidden">
+      <header className="flex items-center justify-between gap-4 border-b px-4 pt-[max(0.5rem,env(safe-area-inset-top))] pb-2">
         <div>
           <h1 className="text-lg font-semibold tracking-tight">RouteWise</h1>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground max-md:hidden">
             Three truck routes, scored by the weather each one meets at the hour the truck gets there.
           </p>
         </div>
         <ServerStatus waking={server.waking} unreachable={server.unreachable} />
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-        <aside className="order-2 w-full space-y-4 overflow-y-auto border-t p-4 md:order-1 md:w-[400px] md:shrink-0 md:border-t-0 md:border-r">
+      <div className="relative flex min-h-0 flex-1 flex-col md:flex-row">
+        <TripPanel
+          open={sheetOpen}
+          onToggle={() => setSheetOpen((open) => !open)}
+          summary={planSummary(plan.data, plan.isFetching, plan.isError)}
+        >
           <TripForm onPlan={setTrip} planning={plan.isFetching} />
           {plan.isError && <PlanError error={plan.error} />}
           {plan.data && (
@@ -67,9 +77,11 @@ export default function App() {
               checkpoint's risk at its ETA, and a 48-hour risk heatmap of the corridor.
             </p>
           )}
-        </aside>
+          <Attributions className="border-t pt-3 md:hidden" />
+        </TripPanel>
 
-        <main className="order-1 flex min-h-[45dvh] flex-1 flex-col md:order-2 md:min-h-0">
+        {/* On a phone the map fills the screen; the bottom padding keeps the slider above the lowered sheet. */}
+        <main className="flex min-h-0 flex-1 flex-col max-md:pb-[calc(3.5rem_+_env(safe-area-inset-bottom,0px))]">
           <div className="relative min-h-0 flex-1">
             <MapErrorBoundary>
               <Suspense fallback={<MapPlaceholder />}>
@@ -98,37 +110,32 @@ export default function App() {
         </main>
       </div>
 
-      <footer className="border-t px-4 py-1.5 text-[11px] text-muted-foreground">
-        Routing by TomTom ·{' '}
-        <a
-          className="underline underline-offset-2"
-          href="https://www.geoapify.com/"
-          target="_blank"
-          rel="noreferrer"
-        >
-          Powered by Geoapify
-        </a>{' '}
-        ·{' '}
-        <a
-          className="underline underline-offset-2"
-          href="https://open-meteo.com/"
-          target="_blank"
-          rel="noreferrer"
-        >
-          Weather data by Open-Meteo.com
-        </a>{' '}
-        (CC BY 4.0) · Map tiles by{' '}
-        <a
-          className="underline underline-offset-2"
-          href="https://openfreemap.org/"
-          target="_blank"
-          rel="noreferrer"
-        >
-          OpenFreeMap
-        </a>
-        , © OpenMapTiles, © OpenStreetMap contributors
+      <footer className="border-t px-4 py-1.5 max-md:hidden">
+        <Attributions />
       </footer>
     </div>
+  )
+}
+
+/** The data and tile providers' attribution lines; in the footer on a desktop, in the sheet on a phone. */
+function Attributions({ className }: { className?: string }) {
+  const link = 'underline underline-offset-2'
+  return (
+    <p className={cn('text-[11px] text-muted-foreground', className)}>
+      Routing by TomTom ·{' '}
+      <a className={link} href="https://www.geoapify.com/" target="_blank" rel="noreferrer">
+        Powered by Geoapify
+      </a>{' '}
+      ·{' '}
+      <a className={link} href="https://open-meteo.com/" target="_blank" rel="noreferrer">
+        Weather data by Open-Meteo.com
+      </a>{' '}
+      (CC BY 4.0) · Map tiles by{' '}
+      <a className={link} href="https://openfreemap.org/" target="_blank" rel="noreferrer">
+        OpenFreeMap
+      </a>
+      , © OpenMapTiles, © OpenStreetMap contributors
+    </p>
   )
 }
 

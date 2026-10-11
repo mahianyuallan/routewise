@@ -1,3 +1,5 @@
+import { useState } from 'react'
+
 import { formatNumber } from '@/lib/format'
 import {
   SEQUENTIAL_BLUE,
@@ -7,6 +9,7 @@ import {
   type WeatherScale,
 } from '@/lib/heatmap-metrics'
 import { LEVELS, LEVEL_COLOR, LEVEL_LABEL, NO_DATA_COLOR, NO_DATA_LABEL } from '@/lib/risk'
+import { cn } from '@/lib/utils'
 
 interface Props {
   heatmapOn: boolean
@@ -15,10 +18,39 @@ interface Props {
   stormRadiusMiles?: number | null
 }
 
-/** The one palette, named in text as well as colour, so risk is never shown by colour alone. */
+/**
+ * The one palette, named in text as well as colour, so risk is never shown by colour alone.
+ * On a phone it folds into a button, so it doesn't cover a third of the map.
+ */
 export function Legend({ heatmapOn, heatmapMetric = 'risk', stormRadiusMiles = null }: Props) {
+  const [open, setOpen] = useState(false)
   return (
-    <div className="pointer-events-none absolute top-3 right-3 rounded-lg border bg-background/95 p-3 text-xs shadow-sm backdrop-blur">
+    <div className="pointer-events-none absolute top-3 right-3 flex flex-col items-end gap-1">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        aria-controls="map-legend"
+        className="pointer-events-auto rounded-md border bg-background/95 px-2.5 py-1 text-xs font-medium shadow-sm select-none active:bg-muted md:hidden"
+      >
+        {open ? 'Hide legend' : 'Legend'}
+      </button>
+      <div
+        id="map-legend"
+        className={cn(
+          'rounded-lg border bg-background/95 p-3 text-xs shadow-sm backdrop-blur',
+          !open && 'max-md:hidden',
+        )}
+      >
+        <LegendBody heatmapOn={heatmapOn} heatmapMetric={heatmapMetric} stormRadiusMiles={stormRadiusMiles} />
+      </div>
+    </div>
+  )
+}
+
+function LegendBody({ heatmapOn, heatmapMetric, stormRadiusMiles }: Required<Props>) {
+  return (
+    <>
       <div className="mb-1.5 font-medium">Risk level</div>
       <ul className="space-y-1">
         {LEVELS.map((level) => (
@@ -54,7 +86,7 @@ export function Legend({ heatmapOn, heatmapMetric = 'risk', stormRadiusMiles = n
           </div>
         </div>
       )}
-    </div>
+    </>
   )
 }
 

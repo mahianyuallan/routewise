@@ -57,7 +57,13 @@ export function PlaceCombobox({ id, value, onChange, placeholder, invalid }: Pro
       </PopoverTrigger>
       <PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
         <Command shouldFilter={false}>
-          <CommandInput placeholder="Type a city, address or place" value={text} onValueChange={setText} />
+          {/* 16px on phones: iOS Safari zooms into any smaller input and never zooms back out. */}
+          <CommandInput
+            placeholder="Type a city, address or place"
+            value={text}
+            onValueChange={setText}
+            className="text-base md:text-sm"
+          />
           <CommandList id={listId}>
             {text.trim().length < 3 ? (
               <CommandEmpty>Type at least 3 characters.</CommandEmpty>

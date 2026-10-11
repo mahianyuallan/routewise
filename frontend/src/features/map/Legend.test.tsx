@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 
 import { Legend } from './Legend'
@@ -25,6 +25,17 @@ describe('Legend', () => {
     unmount()
     render(<Legend heatmapOn heatmapMetric="snow" />)
     for (const tick of ['0.5', '1.0', '2.0', '3.0+']) expect(screen.getByText(tick)).toBeInTheDocument()
+  })
+
+  it('folds into a button on a phone, which opens and closes it', () => {
+    render(<Legend heatmapOn heatmapMetric="risk" />)
+    const toggle = screen.getByRole('button', { name: 'Legend' })
+    const panel = document.getElementById('map-legend')!
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(panel).toHaveClass('max-md:hidden')
+    fireEvent.click(toggle)
+    expect(screen.getByRole('button', { name: 'Hide legend' })).toHaveAttribute('aria-expanded', 'true')
+    expect(panel).not.toHaveClass('max-md:hidden')
   })
 
   it('leaves the heatmap out when it is off', () => {

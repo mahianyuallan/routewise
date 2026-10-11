@@ -126,5 +126,16 @@
   }
   html {
     @apply font-sans;
+    /* An app shell, not a document: no grey flash on tap, no font inflation in landscape,
+       and no pull-to-refresh or page bounce behind the map and the sheet. */
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+    overscroll-behavior: none;
+  }
+  /* Taps fire at once instead of waiting to see whether a double-tap zoom follows. */
+  button,
+  a,
+  [role='button'] {
+    touch-action: manipulation;
   }
 }
