@@ -4,7 +4,7 @@
 
 Weather-aware truck routing. RouteWise plans three truck routes between two US places, forecasts the weather at the hour the truck reaches each checkpoint, scores it with Spotter's risk and load rules, and recommends the safest route, with travel time as the tie-breaker. The map shows the routes, every checkpoint's risk and ETA, and a 48-hour risk heatmap of the corridor.
 
-![Dallas to Denver: three routes, checkpoint risk and the corridor heatmap](docs/images/dallas-denver.png)
+![Dallas to Denver at 38,000 lb: three routes, checkpoint risk and the corridor heatmap](docs/images/dallas-denver.png)
 
 ## Live demo
 
@@ -24,7 +24,7 @@ The API runs on a free Render instance kept awake by a monitor. If it has dozed 
 4. **Weather.** Open-Meteo hourly forecasts, fetched once per 0.1° cell and cached for an hour. Sustained wind is interpolated to the ETA; rain, showers, snow and gusts come from the hour the truck is in (an ETA of 14:20 reads the 15:00 slot, which covers 14:00 to 15:00).
 5. **Risk.** The brief's thresholds and load rules give each checkpoint a level and a plain-language reason.
 6. **Ranking.** Miles at each level, average risk and travel time rank the routes; the UI names the rule that decided it.
-7. **Heatmap.** A grid of at most 200 points within 25 miles of any route, classified with the same rules and load for the departure hour and the 48 hours after it. The slider changes an index into frames already in memory, so scrubbing makes no requests.
+7. **Heatmap.** A grid of at most 200 points within 25 miles of any route, classified with the same rules and load for the departure hour and the 48 hours after it. The slider changes an index into frames already in memory, so scrubbing makes no requests. A switch shows sustained wind, rain or snow instead of risk.
 
 ## Risk rules
 
@@ -58,15 +58,15 @@ Routes are compared on each rule in turn, moving to the next only on a tie:
 
 Miles are rounded to whole miles and average risk to one decimal before comparing, which keeps the order consistent across three routes. No Travel miles round up, so a short No Travel stretch can't pass as safe. Routes with missing weather rank after complete ones; a full tie keeps TomTom's order.
 
-**Worked example** (Dallas → Denver, 38,000 lb, the screenshot above):
+**Worked example** (Dallas → Denver, 35,000 lb, 25-mile checkpoints, with the [simulated storm](#simulated-weather) below):
 
 | Route | Miles | Time | No Travel | Severe | High | Average risk |
 |---|---|---|---|---|---|---|
-| A (fastest) | 883 | 11 h 51 min | 0 | 0 | 0 | 0.00 |
-| B (eco) | 795 | 12 h 27 min | 0 | 0 | 0 | 0.03 → 0.0 |
-| C (via) | 863 | 13 h 05 min | 0 | 0 | 0 | 0.00 |
+| A (fastest) | 883 | 11 h 57 min | 25 | 0 | 50 | 0.28 → 0.3 |
+| B (eco) | 793 | 12 h 19 min | 0 | 0 | 0 | 0.0 |
+| C (via) | 804 | 12 h 29 min | 0 | 0 | 0 | 0.0 |
 
-Rules 0 to 2 tie at zero. Rule 3 ties too, because 0.03 rounds to 0.0. Rule 4 decides: "Route A recommended. Shortest travel time: 11 h 51 min vs 12 h 27 min on Route B."
+Route A is the fastest, but the storm meets it at mile 450, where 50.1 mph of wind with a 35,000 lb load is No Travel (load rule 2). Rule 0 puts it last. B and C tie on rules 0 to 3, so rule 4 decides: "Route B recommended. Shortest travel time: 12 h 19 min vs 12 h 29 min on Route C." With the real forecast at the same departure every route was Low, and travel time chose Route A, as in the screenshot at the top.
 
 If every route has No Travel conditions, the ranking is still shown but the recommendation is replaced by "No safe route at this departure time", pointing at the heatmap to find a clearer window.
 
@@ -79,9 +79,16 @@ A calm review day leaves every route Low, so the form has a **Simulated weather*
 - **What it shows:** nothing reaches No Travel on weather alone, so the load rules do the visible work. At 25,000 lb the core checkpoint is Severe, at 35,000 lb it turns No Travel (rule 2), and at 45,000 lb the High ring turns Severe (rule 3). On Dallas → Denver the storm-hit route drops to last and another route is recommended.
 - **Labelled everywhere:** a banner, every route card, every checkpoint tooltip, the legend and a badge on the map, where a ring shows the storm moving as the slider scrubs.
 
-![Simulated weather at 35,000 lb: the storm ring over Kansas, the core of Route A at No Travel, Route B recommended](docs/images/simulated-storm.png)
+![Simulated weather at 35,000 lb, at the hour the storm meets Route A: its truck in the No Travel core over Kansas, Route B recommended](docs/images/simulated-storm.png)
 
 The plan response carries the storm in `trip.storm`, and the heatmap request sends its centre and time back, so the API stays stateless. Rule 1 (55 mph and above), rain and snow No Travel, and every snow level are covered by the tests instead.
+
+## Around the map
+
+- **Checkpoint table.** Under the selected route's card: every checkpoint's mile, ETA, wind, rain, snow and level, with the load rule that fired and the full reason on hover.
+- **Play the forecast.** A play button steps the slider an hour at a time, and a truck on each route shows where it would be at that hour, ringed in the level of the stretch it is on.
+- **Heatmap switch.** Risk, sustained wind, rain or snow. The weather views use one blue scale that darkens up to the reading the rules make No Travel, with the Moderate, High and Severe thresholds marked on the legend.
+- **Phone layout.** Below 768 px the map fills the screen and the form and results move into a bottom sheet, which lowers itself when a plan arrives and names the recommended route on its handle.
 
 ## Assumptions
 
@@ -131,8 +138,8 @@ Environment variables are listed in [`backend/.env.example`](backend/.env.exampl
 ## Tests and CI
 
 ```bash
-cd backend && uv run pytest        # 140 tests, every provider mocked with recorded responses
-cd frontend && npm test            # 27 tests: risk palette, time formatting, geometry, route cards, tooltips, storm drift
+cd backend && uv run pytest        # 144 tests, every provider mocked with recorded responses
+cd frontend && npm test            # 63 tests: palette and heatmap scales, formatting, geometry, trucks, playback, cards, table, legend, tooltips
 ```
 
 [GitHub Actions](.github/workflows/ci.yml) runs Ruff, pytest with coverage, oxlint, Prettier, Vitest and the production build on every push, and checks that `requirements.txt` matches the lockfile and that the frontend's API types match the backend's schema.
@@ -165,6 +172,7 @@ What keeps it fast: the five routing calls run at once (TomTom's own alternative
 - ETAs ignore rest breaks, fuel stops and live incidents.
 - The free API instance has 0.1 CPU and sleeps after 15 idle minutes without the keep-alive monitor.
 - Open-Meteo's free API is for non-commercial use; a production deployment would need a subscription.
+- Open-Meteo's free limits (600 calls a minute, 10,000 a day) count every location as a call, and a cold Dallas → Denver plan with its heatmap is about 450. A free Render instance shares its outbound addresses with other services, so their traffic can use up the forecast quota first: this happened on 11 October. The app then says which limit was hit and points at simulated weather, which needs no forecast.
 
 ## Documents
 
