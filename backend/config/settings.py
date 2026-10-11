@@ -122,6 +122,8 @@ SPECTACULAR_SETTINGS = {
     "VERSION": "0.1.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,
+    # Every level field shares one enum, so the generated TypeScript gets one RiskLevel type.
+    "ENUM_NAME_OVERRIDES": {"RiskLevelEnum": "trips.api.serializers.LEVELS"},
 }
 
 LOGGING = {
