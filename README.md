@@ -10,8 +10,8 @@ Weather-aware truck routing. RouteWise plans three truck routes between two US p
 
 | | |
 |---|---|
-| App | _added on submission_ |
-| API | _added on submission_ (`/api/docs/` is the interactive OpenAPI page) |
+| App | [routewise-two.vercel.app](https://routewise-two.vercel.app) |
+| API | [routewise-api-h9q3.onrender.com/api/docs/](https://routewise-api-h9q3.onrender.com/api/docs/), the interactive OpenAPI page; health at [`/api/health/`](https://routewise-api-h9q3.onrender.com/api/health/) |
 | Walkthrough | _added on submission_ |
 
 The API runs on a free Render instance kept awake by a monitor. If it has dozed off, the page says so and the first plan takes about a minute longer.
@@ -132,7 +132,10 @@ Measured on an 883-mile Dallas → Denver plan with 10-mile checkpoints (90 per 
 |---|---|---|---|---|
 | First plan (nothing cached), local machine | 5.1 s | 3.2 s | 0.1 s | 8.4 s |
 | Repeat with weather cached, local machine | 4.6 s | 0.02 s | 0.2 s | 4.9 s |
-| Render free instance | _added on submission_ | | | |
+| First plan (nothing cached), Render free instance | 3.3 s | 1.5 s | 0.4 s | 5.8 s |
+| Repeat with weather cached, Render free instance | 3.4 s | 0.01 s | 0.5 s | 4.4 s |
+
+The Render rows were measured against the live deployment on 11 October 2026 from a client in Nairobi, so the totals include the round trip; five warm repeats landed between 4.0 and 4.6 s, inside the 10 s target. A sleeping instance adds about 40 s to the first request.
 
 What keeps it fast: the five routing calls run at once (TomTom's own alternatives took 11 to 14 s on this trip); weather is fetched per 0.1° cell and cached for an hour, so a changed load or departure re-plans in a few seconds; route geometry is simplified server-side; the map libraries load lazily after the form paints; and the slider only changes an index, so scrubbing 0 to 48 h makes no requests and allocates no data.
 

@@ -662,15 +662,15 @@ A run that fits in about 8 minutes:
 
 **Only TomTom and Geoapify issue keys you need, and both are free without a card; everything else is a hosting or recording account.** Both keys live in the backend environment only.
 
-- [ ] **TomTom:** sign up at [my.tomtom.com](https://my.tomtom.com/), create an API key, and store it as `TOMTOM_API_KEY` in `backend/.env`.
-- [ ] **Geoapify:** sign up at [myprojects.geoapify.com](https://myprojects.geoapify.com/), create a project, and store its key as `GEOAPIFY_API_KEY` in `backend/.env`.
-- [ ] **Open-Meteo and OpenFreeMap:** nothing to create; add their attribution lines to the UI.
+- [x] **TomTom:** sign up at [my.tomtom.com](https://my.tomtom.com/), create an API key, and store it as `TOMTOM_API_KEY` in `backend/.env`.
+- [x] **Geoapify:** sign up at [myprojects.geoapify.com](https://myprojects.geoapify.com/), create a project, and store its key as `GEOAPIFY_API_KEY` in `backend/.env`.
+- [x] **Open-Meteo and OpenFreeMap:** nothing to create; add their attribution lines to the UI.
 - [x] **GitHub:** public repository [mahianyuallan/routewise](https://github.com/mahianyuallan/routewise) with `backend/` and `frontend/`.
-- [ ] **Render:** account linked to GitHub, one free web service.
-- [ ] **Vercel:** account linked to GitHub, one project.
+- [x] **Render:** account linked to GitHub, one free web service: [routewise-api-h9q3.onrender.com](https://routewise-api-h9q3.onrender.com/api/health/), deployed from `render.yaml` on 11 October 2026.
+- [x] **Vercel:** account linked to GitHub, one project: [routewise-two.vercel.app](https://routewise-two.vercel.app), deployed with the Vercel CLI from `frontend/` on 11 October 2026.
 - [ ] **UptimeRobot:** one HTTP monitor on `/api/health/` every 5 minutes.
 - [ ] **Loom:** create the account now; decide trial or two parts on recording day.
-- [ ] **Local machine:** Node 24 LTS 24.15 or later (this machine has 24.6.0), Python 3.13, uv (not installed yet) and Git.
+- [x] **Local machine:** Node 24 LTS 24.15 or later (this machine has 24.20.0), Python 3.13, uv and Git.
 
 ## Sources
 
