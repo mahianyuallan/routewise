@@ -79,6 +79,8 @@ A calm review day leaves every route Low, so the form has a **Simulated weather*
 - **What it shows:** nothing reaches No Travel on weather alone, so the load rules do the visible work. At 25,000 lb the core checkpoint is Severe, at 35,000 lb it turns No Travel (rule 2), and at 45,000 lb the High ring turns Severe (rule 3). On Dallas → Denver the storm-hit route drops to last and another route is recommended.
 - **Labelled everywhere:** a banner, every route card, every checkpoint tooltip, the legend and a badge on the map, where a ring shows the storm moving as the slider scrubs.
 
+![Simulated weather at 35,000 lb: the storm ring over Kansas, the core of Route A at No Travel, Route B recommended](docs/images/simulated-storm.png)
+
 The plan response carries the storm in `trip.storm`, and the heatmap request sends its centre and time back, so the API stays stateless. Rule 1 (55 mph and above), rain and snow No Travel, and every snow level are covered by the tests instead.
 
 ## Assumptions
