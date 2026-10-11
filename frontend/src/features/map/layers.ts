@@ -35,7 +35,14 @@ function withAlpha(rgb: Rgb, alpha: number): Rgba {
   return [rgb[0], rgb[1], rgb[2], alpha]
 }
 
-const HEATMAP_GRID_SPACINGS = 1.5
+/**
+ * Kernel radius in grid spacings. deck.gl's kernel is a Gaussian with sigma a sixth of the
+ * radius, and with MEAN aggregation a pixel is fully opaque only where the kernels around it
+ * sum to 1 or more. In the middle of a square of four grid points that takes a radius of
+ * 1.86 spacings; 2.5 leaves room for the gaps an irregular grid has, while sigma (0.42
+ * spacings) stays tight enough that each point still decides the colour around it.
+ */
+const HEATMAP_GRID_SPACINGS = 2.5
 const STORM_RGB: Rgb = [180, 83, 9]
 const WAITING_OR_ARRIVED_RGB: Rgb = [60, 60, 60]
 
