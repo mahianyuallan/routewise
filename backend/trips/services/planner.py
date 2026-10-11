@@ -3,6 +3,7 @@
 The result is plain JSON-ready data. Coordinates are [lon, lat]; times are UTC ISO strings.
 """
 
+import logging
 import time
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -20,6 +21,8 @@ from .sampling import Checkpoint, RouteProfile, build_profile, choose_spacing, p
 from .scoring import Recommendation, RouteScore, rank, recommend, score_route
 from .timeutil import iso_utc
 from .weather import OpenMeteoProvider, WeatherProvider, conditions_at
+
+log = logging.getLogger(__name__)
 
 LABELS = ("A", "B", "C")
 SEGMENT_TOLERANCE_M = 25
@@ -152,6 +155,16 @@ def plan_trip(
     }
     total_ms = (time.perf_counter() - started) * 1000
     timings["compute"] = max(0.0, total_ms - timings["tomtom"] - timings["weather"])
+    log.info(
+        "plan %s -> %s, depart %s: %d routes; tomtom %.0f ms, weather %.0f ms, compute %.0f ms",
+        trip.origin.label,
+        trip.destination.label,
+        plan["trip"]["departure_utc"],
+        len(routes),
+        timings["tomtom"],
+        timings["weather"],
+        timings["compute"],
+    )
     return plan, timings
 
 

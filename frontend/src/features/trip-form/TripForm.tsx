@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { LoaderCircleIcon } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Controller, useForm, useWatch } from 'react-hook-form'
 import { z } from 'zod'
 
@@ -65,6 +65,7 @@ export function TripForm({ onPlan, planning }: Props) {
   })
   const { errors, dirtyFields } = formState
   const origin = useWatch({ control, name: 'origin' })
+  const elapsed = useElapsedSeconds(planning)
 
   // Departure is wall-clock time at the origin: once an origin is picked, default to the next
   // full hour there, unless the driver already typed a time.
@@ -203,16 +204,33 @@ export function TripForm({ onPlan, planning }: Props) {
           <Button type="submit" className="w-full" disabled={planning}>
             {planning ? (
               <>
-                <LoaderCircleIcon className="animate-spin" /> Planning…
+                <LoaderCircleIcon className="animate-spin" /> Planning…{elapsed >= 8 ? ` ${elapsed} s` : ''}
               </>
             ) : (
               'Plan routes'
             )}
           </Button>
+          {planning && elapsed >= 20 && (
+            <p className="text-xs text-muted-foreground" aria-live="polite">
+              Still working. Long trips take a while when the routing service is busy.
+            </p>
+          )}
         </form>
       </CardContent>
     </Card>
   )
+}
+
+/** Seconds since `running` became true, so a slow plan never looks frozen. */
+function useElapsedSeconds(running: boolean): number {
+  const [seconds, setSeconds] = useState(0)
+  useEffect(() => {
+    if (!running) return
+    const started = Date.now()
+    const timer = window.setInterval(() => setSeconds(Math.round((Date.now() - started) / 1000)), 1000)
+    return () => window.clearInterval(timer)
+  }, [running])
+  return running ? seconds : 0
 }
 
 function FieldError({ message }: { message?: string }) {

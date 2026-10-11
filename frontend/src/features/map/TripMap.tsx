@@ -78,7 +78,8 @@ export default function TripMap({ plan, heatmap }: Props) {
         setBeforeId(symbol?.id)
         fitToPlan()
       }}
-      onZoom={(event) => setZoom(Math.round(event.viewState.zoom * 4) / 4)}
+      // onMove also fires during fitBounds animations; the heatmap radius scales with zoom.
+      onMove={(event) => setZoom(Math.round(event.viewState.zoom * 4) / 4)}
     >
       <NavigationControl position="top-left" showCompass={false} />
       <DeckGLOverlay interleaved layers={layers} getTooltip={(info) => checkpointTooltip(info, timeZone)} />
