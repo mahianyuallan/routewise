@@ -5,9 +5,11 @@ import {
   formatDateTime,
   formatDuration,
   formatMiles,
+  formatWeekdayClock,
   hoursBetween,
   nextFullHourLocal,
   offsetLabel,
+  zoneAbbreviation,
 } from './format'
 
 describe('times in the origin zone', () => {
@@ -18,6 +20,11 @@ describe('times in the origin zone', () => {
 
   it('switches to standard time after the clocks go back', () => {
     expect(formatClock('2026-11-02T14:00:00Z', 'America/Chicago')).toBe('08:00 CST')
+  })
+
+  it('gives tables a weekday and clock, and the zone abbreviation on its own', () => {
+    expect(formatWeekdayClock('2026-10-13T05:10:00Z', 'America/Chicago')).toBe('Tue 00:10')
+    expect(zoneAbbreviation('2026-10-12T14:00:00Z', 'America/Denver')).toBe('MDT')
   })
 
   it('never shows 24:00', () => {

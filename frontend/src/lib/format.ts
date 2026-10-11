@@ -42,6 +42,23 @@ export function formatClock(iso: string | Date, timeZone: string): string {
   return `${get('hour')}:${get('minute')} ${get('timeZoneName')}`
 }
 
+/** "Mon 09:00", for compact tables whose header names the zone. */
+export function formatWeekdayClock(iso: string | Date, timeZone: string): string {
+  const date = typeof iso === 'string' ? new Date(iso) : iso
+  const parts = formatter(timeZone, {
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).formatToParts(date)
+  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? ''
+  return `${get('weekday')} ${get('hour')}:${get('minute')}`
+}
+
+/** "CDT": the zone's abbreviation at that instant. */
+export function zoneAbbreviation(iso: string | Date, timeZone: string): string {
+  return formatClock(iso, timeZone).split(' ').at(-1) ?? ''
+}
+
 /** "12 h 11 min", matching the API's wording. */
 export function formatDuration(seconds: number): string {
   const minutes = Math.round(seconds / 60)

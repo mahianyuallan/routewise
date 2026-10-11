@@ -1,3 +1,5 @@
+import { Fragment } from 'react'
+
 import type { PlanResponse, Route } from '@/api/client'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -5,6 +7,8 @@ import { formatDateTime, formatDuration, formatMiles, formatNumber } from '@/lib
 import { LEVELS, LEVEL_COLOR, LEVEL_LABEL, NO_DATA_COLOR, levelLabel } from '@/lib/risk'
 import { cn } from '@/lib/utils'
 import { useUiStore } from '@/store/ui-store'
+
+import { CheckpointTable } from './CheckpointTable'
 
 const SOURCE_LABEL: Record<Route['source'], string> = {
   fastest: 'fastest',
@@ -19,7 +23,10 @@ interface Props {
   dimmed: boolean
 }
 
-/** One card per route, best first. Selecting a card focuses that route on the map. */
+/**
+ * One card per route, best first. Selecting a card focuses that route on the map and opens
+ * its checkpoint table under the card.
+ */
 export function RouteCards({ plan, dimmed }: Props) {
   const selectedRoute = useUiStore((s) => s.selectedRoute)
   const selectRoute = useUiStore((s) => s.selectRoute)
@@ -29,14 +36,23 @@ export function RouteCards({ plan, dimmed }: Props) {
   return (
     <div className={cn('space-y-3 transition-opacity', dimmed && 'opacity-50')} aria-busy={dimmed}>
       {routes.map((route) => (
-        <RouteCard
-          key={route.label}
-          route={route}
-          timeZone={plan.trip.timezone}
-          selected={route.label === selectedRoute}
-          simulated={simulated}
-          onSelect={() => selectRoute(route.label)}
-        />
+        <Fragment key={route.label}>
+          <RouteCard
+            route={route}
+            timeZone={plan.trip.timezone}
+            selected={route.label === selectedRoute}
+            simulated={simulated}
+            onSelect={() => selectRoute(route.label)}
+          />
+          {route.label === selectedRoute && (
+            <CheckpointTable
+              route={route}
+              timeZone={plan.trip.timezone}
+              originLabel={plan.trip.origin.label}
+              simulated={simulated}
+            />
+          )}
+        </Fragment>
       ))}
     </div>
   )
