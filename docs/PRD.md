@@ -36,7 +36,7 @@ A US truck driver or dispatcher planning one origin-to-destination trip before d
 | # | Requirement |
 |---|---|
 | R1 | **Trip form.** Origin and destination with US-only autocomplete; each pick carries its coordinates and time zone. Departure date and time in the origin's local time (default: next full hour; allowed: now to 7 days ahead; earlier times are rejected). Load: cargo weight in lb, 0 to 45,000 (0 means an empty trailer). Checkpoint spacing of 10, 25 or 50 miles (default 25). |
-| R2 | **Three routes** from a routing API in truck mode for the chosen departure time, for a standard 53-ft tractor-trailer. Variants are requested in parallel, and a via point is added only if fewer than 3 distinct routes remain. If 3 distinct routes don't exist, show what exists and say so. Routes are labelled A, B and C and keep their labels. |
+| R2 | **Three routes** from a routing API in truck mode for the chosen departure time, for a standard 53-ft tractor-trailer, avoiding border crossings. Five variants are requested at once: fastest, eco, short, and two routes steered either side of the straight line. Near-duplicates are dropped. If 3 distinct routes don't exist, show what exists and say so. Routes are labelled A, B and C and keep their labels. |
 | R3 | **Checkpoints** every N miles along each route, plus the origin and destination. Each has an ETA from that route's own travel-time profile. If the chosen spacing would exceed the weather budget, the app widens it and says why. |
 | R4 | **Weather at the ETA** for each checkpoint: sustained wind, gusts (display only), rain rate and snow rate. |
 | R5 | **Risk level** per checkpoint from the brief's thresholds and load rules (Appendix A), with a plain-language reason. |
@@ -90,7 +90,8 @@ Where the brief leaves room, these are the calls made. Each one is a single cons
 | Slider start | Hour 0 = departure hour, and labels show clock times. | Keeps the heatmap on the trip even for future departures. When departing now, it is the same as starting from the current time. |
 | Heatmap | A smoothed field over the corridor (within 25 miles of any route), at most 200 grid points, labelled as smoothed. | Smooth to scrub, and honest that blending shows in-between colours. |
 | Time zone | Times are entered and shown in the origin's local time, labeled (e.g. CDT), and computed in UTC. A time that happens twice when clocks go back takes its first occurrence; one that doesn't exist is rejected; departures before now are rejected. | Drivers plan in local time. A plan is for a trip that hasn't started. |
-| Route labels | A, B and C follow the routing API's order and never change within a plan; cards are sorted by rank. | Labels don't reshuffle when the ranking changes. |
+| Route labels | A, B and C follow the order the variants were requested in and never change within a plan; cards are sorted by rank. | Labels don't reshuffle when the ranking changes. |
+| Getting three routes | One parallel wave of five single-route calls: fastest, eco, short and two via points either side of the straight line. TomTom's own alternatives aren't requested. | Measured on 800-mile trips: 4.5 to 5 s, against 11 to 14 s with TomTom's alternatives plus via-point fallback. The via routes also spread across different corridors, which suits comparing weather. |
 | Load rules | Applied exactly as written. | The brief is the spec. See section 12. |
 
 ## 9. Technical approach
@@ -107,12 +108,12 @@ Full detail, versions and sources: [TECH-STACK.md](TECH-STACK.md).
 | Caching | Forecasts cached for 60 minutes per 0.1° cell, place searches for 24 hours, in memory | Forecasts update hourly, and caching keeps searches inside the weather API's limits. Best-effort: nothing depends on it except speed. |
 | Quality | pytest with recorded provider responses, so tests run offline; Vitest for the frontend. GitHub Actions runs tests, lint and the frontend build on every push. | Proves the rules without live APIs. |
 
-**Budgets.** Each plan uses at most 500 weather lookups (300 checkpoint cells and 200 heatmap points) and at most 4 routing calls. API keys stay on the server.
+**Budgets.** Each plan uses at most 500 weather lookups (300 checkpoint cells and 200 heatmap points) and 5 routing calls, so TomTom's free 20,000 a month covers about 4,000 plans. API keys stay on the server.
 
 ## 10. Risks
 | Risk | Mitigation |
 |---|---|
-| Fewer than 3 distinct routes come back | Request variants in parallel (alternatives, eco, short), add a via point off the main route if needed, drop near-duplicates, and explain when fewer exist. |
+| Fewer than 3 distinct routes come back | Request five variants in parallel (fastest, eco, short, two via points), drop near-duplicates, and explain when fewer exist. |
 | Weather API limits (600 calls a minute, 10,000 a day; outbound IPs on Render are shared) | The 500-lookup budget, cell caching, batched requests, retry with backoff, and a clear "weather service busy" message. |
 | Render's free instance is slow (0.1 CPU) and may restart at any time | A stateless API, so a restart loses nothing. Timing is measured on the first deploy and shown per stage in a `Server-Timing` header. The API moves to Vercel if a warm plan takes over 10 s. |
 | Render sleeps after 15 idle minutes | An UptimeRobot check every 5 minutes, plus a "waking the server" message if it ever sleeps. |
@@ -170,7 +171,7 @@ Minimum boundary tests:
 - **Missing values:** any missing field makes the checkpoint "No data" (Appendix C).
 
 ## Appendix C: Recommendation
-For each route the app computes miles at each level, drive time, and average risk = Σ(score × miles) ÷ the route miles that have data. Miles are rounded to whole miles and average risk to one decimal before comparing.
+For each route the app computes miles at each level, drive time, and average risk = Σ(score × miles) ÷ the route miles that have data. Miles are rounded to whole miles and average risk to one decimal before comparing. No Travel miles round up, so any No Travel stretch counts as at least a mile and a route can't pass as safe on rounding.
 
 Routes are ranked by these rules, in order:
 0. Fewest No Travel miles (added; see section 8)
@@ -188,7 +189,7 @@ The top route is **Recommended**. Its reason is the first rule on which it beats
 ## Appendix D: External APIs (checked 10 to 11 Oct 2026)
 | API | What we use | Limits that matter |
 |---|---|---|
-| TomTom Routing v1 | `travelMode=truck`. `maxAlternatives=2`, plus `routeType=eco` and `short` in parallel and a via point only if needed. `departAt`. `vehicleWeight` = (load + 35,000 lb tare) in kg, plus rig length, width, height and axles. `extendedRouteRepresentation`. | 20,000 free requests a month, no card; past the quota it returns 429 and charges nothing |
+| TomTom Routing v1 | `travelMode=truck`. Five calls in parallel: `routeType=fastest`, `eco`, `short`, and two `fastest` calls with a `circle(...)` via point. `avoid=borderCrossings`. `departAt`. `vehicleWeight` = (load + 35,000 lb tare) in kg, plus rig length, width, height and axles. `extendedRouteRepresentation`. | 20,000 free requests a month, no card; past the quota it returns 429 and charges nothing |
 | Geoapify Address Autocomplete | US-only typeahead with coordinates and time zone, through the backend | 3,000 free credits a day, 5 requests a second, no card; "Powered by Geoapify" attribution |
 | Open-Meteo Forecast | Multi-location hourly forecast with `wind_speed_unit=mph` and `precipitation_unit=inch` (snowfall also comes back in inches) | Free for non-commercial use: 600 calls a minute, 5,000 an hour and 10,000 a day. Each location counts as one call. CC BY 4.0 attribution. |
 | OpenFreeMap | Positron vector basemap | No key, no view limits |

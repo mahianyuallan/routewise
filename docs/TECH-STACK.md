@@ -70,8 +70,8 @@ GET https://api.tomtom.com/routing/1/calculateRoute/{oLat},{oLon}:{dLat},{dLon}/
   &vehicleWidth=2.59
   &vehicleHeight=4.11
   &vehicleNumberOfAxles=5
-  &maxAlternatives=2
   &routeType=fastest
+  &avoid=borderCrossings
   &traffic=true
   &departAt=2026-10-12T06:00:00-05:00
   &routeRepresentation=polyline
@@ -85,18 +85,20 @@ GET https://api.tomtom.com/routing/1/calculateRoute/{oLat},{oLon}:{dLat},{dLon}/
 - **`departAt`:** RFC 3339. With no offset, TomTom assumes the origin's time zone, so always send an explicit offset or `Z`.
 - **Load and `vehicleWeight`:** the form's load is **cargo weight** in pounds, 0 to 45,000. TomTom gets the gross weight: load plus an assumed 35,000 lb tare (tractor plus empty 53-ft trailer), converted to kilograms (1 lb = 0.45359237 kg). Capping load at 45,000 lb keeps gross at or under the 80,000 lb federal limit. Weight restrictions only apply when `vehicleWeight` is non-zero, and the tare keeps it non-zero even for an empty trailer.
 - **Rig profile:** every request describes a standard 53-ft tractor-trailer: 21.9 m long (about 72 ft), 2.59 m wide (8'6"), 4.11 m tall (13'6"), 5 axles. Dimensions default to 0, which means no restriction, so without them TomTom would ignore low bridges. The README states the tare and the profile as assumptions.
-- **Quota behaviour:** past the free allowance, TomTom returns HTTP 429. With no card on file nothing is charged ([FAQ](https://docs.tomtom.com/platform/documentation/status-and-support/faqs)). A plan makes at most 4 routing calls, so 20K a month covers about 5,000 plans.
+- **Border crossings:** every request sets `avoid=borderCrossings`. The trips are US domestic, and a via point near the edge of the country must not steer a route through Canada or Mexico.
+- **Quota behaviour:** past the free allowance, TomTom returns HTTP 429. With no card on file nothing is charged ([FAQ](https://docs.tomtom.com/platform/documentation/status-and-support/faqs)). A plan makes 5 routing calls, so 20K a month covers about 4,000 plans.
 - **Timeouts:** long routes with alternatives cost more compute. A request that hits TomTom's internal limit returns HTTP 500, and `avoid=motorways` on routes over about 500 km is documented as a timeout risk. Give TomTom a generous client timeout, about 45 s, and handle the error.
 
 ### Getting three routes
 
-TomTom says fewer alternatives may come back when distinct ones do not exist. Ask for variants in parallel, then dedupe:
+**One parallel wave of five single-route calls, then dedupe.** Asking TomTom for alternatives (`maxAlternatives=2`) measured 7.9 s for one 800-mile call. It often returned fewer than 3 routes, so a second, sequential round of via-point calls followed: 11 to 14 s at TomTom alone. Five single-route calls in parallel measured 4.5 to 4.9 s and gave 4 distinct routes on both test trips (Dallas–Denver, Chicago–Atlanta).
 
-1. **First wave, in parallel:** `routeType=fastest&maxAlternatives=2`, `routeType=eco` and `routeType=short`. Running them concurrently keeps a plan at about one TomTom round trip. Avoid `routeType=shortest` on long trips; TomTom says it suits only short to medium distances.
-2. **Dedupe with Shapely:** buffer one route by about 250 m in a projected CRS and treat 90% or more shared length as the same route.
-3. **Via point, only if needed:** with fewer than 3 distinct routes left, make one more call with a soft via point. Use a `circle(lat,lon,radiusMeters)` waypoint (radius up to 135,000 m) offset sideways from the main route's midpoint. Circle waypoints steer the route without adding a leg.
+1. **The wave:** `routeType=fastest`, `routeType=eco`, `routeType=short`, and two `fastest` calls steered by soft via points, all at once. Avoid `routeType=shortest` on long trips; TomTom says it suits only short to medium distances.
+2. **Via points:** a `circle(lat,lon,radiusMeters)` waypoint either side of the straight line's midpoint. The offset is 15% of the straight-line distance, clamped to 25–100 km, and the radius is a third of the offset (under TomTom's 135,000 m cap). Circle waypoints steer the route without adding a leg. They're computed from the straight line, so they don't wait for the first route.
+3. **Dedupe:** sample each route every kilometre in a projected CRS, buffer it by 250 m, and treat 90% or more shared length (either way) as the same route.
 4. **Still short:** show the routes that exist and say why, for example origin and destination in the same town.
-5. **Labels:** routes are labelled A, B, C in TomTom's order (fastest first, then its alternatives, then eco, short, via). A label never changes within a plan. Cards are sorted by rank, and each route also records how it was produced, so the UI and the Loom can explain it.
+5. **Labels:** the first three distinct routes are labelled A, B, C in the wave's order (fastest, eco, short, via, via). A label never changes within a plan. Cards are sorted by rank, and each route records how it was produced, so the UI and the Loom can explain it.
+6. **Failures:** a variant that fails is skipped. The plan fails only if every call does, and then reports the first call's error.
 
 ## Geocoding and autocomplete
 
@@ -138,13 +140,14 @@ GET https://api.open-meteo.com/v1/forecast
   &precipitation_unit=inch
   &timeformat=unixtime
   &timezone=GMT
-  &start_hour=2026-10-12T11:00
-  &end_hour=2026-10-13T05:00
+  &forecast_days=11
 ```
 
-- **Checkpoints:** set `start_hour` and `end_hour` to cover departure through arrival.
-- **Heatmap grid:** also use `start_hour`/`end_hour`, from the departure hour to 48 hours later (49 hourly values). Do **not** use `forecast_hours=49`: it starts at the current hour, so a departure 3 days out would get a heatmap that ends before the truck leaves.
-- **Units guard:** check the response's `hourly_units` and fail loudly unless they are mph and inches.
+- **One window per cell:** fetch each cell's next 11 days once and slice it per trip. That still counts as one call per location: under 2 weeks and under 10 variables. It covers a departure 7 days out, the trip and the 48-hour heatmap. Trips with different departures then share the cache.
+- **Checkpoints** read the series at their ETA.
+- **Heatmap** frames read 49 hours starting at the departure hour. Do **not** use `forecast_hours=49`: it starts at the current hour, so a departure 3 days out would get a heatmap that ends before the truck leaves.
+- **Units guard:** check the response's `hourly_units` (Open-Meteo writes mph as `mp/h`) and fail loudly unless they are mph and inches.
+- **Response shape:** several locations come back as a list; a single location comes back as one object.
 
 ### Spec condition to API variable
 
@@ -308,17 +311,20 @@ dev = [
 backend/
   config/              settings.py, urls.py, wsgi.py
   trips/
-    api/               serializers.py, views.py, urls.py
+    api/               serializers.py, views.py, urls.py, errors.py
     services/
-      geocoding.py     Geoapify client
-      routing.py       TomTom client, parallel first wave, via point, dedupe
+      planner.py       one plan end to end, with per-stage timings
+      geocoding.py     Geoapify client, time-zone fallback
+      routing.py       TomTom client, parallel wave of five calls, dedupe
       sampling.py      cumulative miles, checkpoints, ETAs, spacing budget
       weather.py       weather provider interface, Open-Meteo client, cell cache
       simulated.py     simulated storm provider (S2, P1)
       risk.py          thresholds and load rules, pure functions
       scoring.py       miles at each level, ranking, deciding rule
       heatmap.py       corridor grid, 49 hourly frames
-    tests/
+      departure.py     local departure to UTC, clock changes
+      geo.py, http.py, errors.py, timeutil.py   shared helpers
+    tests/             one file per service, plus the API end to end
 ```
 
 ### Endpoints
@@ -352,7 +358,7 @@ The heatmap has its own endpoint so the routes paint first and the heavier grid 
 - **Cache is best-effort:** Render may restart a free instance at any time, which empties it. Nothing depends on it except speed and quota.
 - **Cache lifetimes:** place searches 24 hours, weather cells 60 minutes. Cap the cache's entry count so it stays inside Render's 512 MB.
 - **Throttle** `POST /api/plan/` and `POST /api/heatmap/` with DRF's `AnonRateThrottle` at 60 per hour per IP, so a crawler cannot drain the TomTom and Open-Meteo quotas but a reviewer trying several loads never hits it. Set `NUM_PROXIES` so the throttle sees the client's IP behind Render's proxy.
-- **Timeouts and retries:** TomTom 45 s, Open-Meteo 15 s per chunk, Geoapify 5 s. Retry twice with backoff on 429, 5xx and timeouts; never retry a 400.
+- **Timeouts and retries:** Open-Meteo 15 s per chunk and Geoapify 5 s, each retried twice with backoff on 429, 5xx and timeouts. TomTom gets 45 s and one retry on 429 or 5xx, but none on a timeout: a long route that times out once will time out again. Never retry a 400.
 - **Error mapping:** TomTom `NO_ROUTE_FOUND` or `MAP_MATCHING_FAILURE` becomes a 422 with a readable message. Provider quota errors become a 503 that says which provider is out of quota.
 
 ### Settings checklist
@@ -582,6 +588,7 @@ Rank lexicographically: compare on the first rule, and move to the next only on 
 5. Shortest travel time.
 
 - Round miles at each level to whole miles, and average risk to one decimal, before comparing. Rounding keeps the order transitive; a "within 0.5 mile is a tie" tolerance doesn't, so three routes could rank differently depending on sort order.
+- No Travel miles round **up**, so any No Travel stretch counts as at least one mile. Otherwise a short No Travel stretch, such as a destination checkpoint covering 0.3 miles, would round to 0 and the route could be recommended as safe.
 - If every rule ties, keep TomTom's order.
 - Name the deciding rule in the UI: the first rule where the winner beats the runner-up.
 - If every route has No Travel miles, still show the ranking but replace the recommendation with "No safe route at this departure time; try a later departure", and point to the heatmap to look for a clearer window.
