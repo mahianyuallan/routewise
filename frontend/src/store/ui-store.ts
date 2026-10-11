@@ -1,6 +1,8 @@
 import { useEffect } from 'react'
 import { create } from 'zustand'
 
+import type { HeatmapMetric } from '@/lib/heatmap-metrics'
+
 export const MAX_HOUR = 48
 /** Playback advances one forecast hour per step. */
 export const PLAY_STEP_MS = 400
@@ -11,11 +13,14 @@ interface UiState {
   /** Forecast hour on the slider, 0 (the departure hour) to 48. */
   hour: number
   heatmapOn: boolean
+  /** What the heatmap shows: risk, or one raw weather reading. */
+  heatmapMetric: HeatmapMetric
   /** True while the slider plays forward on its own. */
   playing: boolean
   selectRoute: (label: string | null) => void
   setHour: (hour: number) => void
   setHeatmapOn: (on: boolean) => void
+  setHeatmapMetric: (metric: HeatmapMetric) => void
   setPlaying: (playing: boolean) => void
 }
 
@@ -27,10 +32,12 @@ export const useUiStore = create<UiState>((set) => ({
   selectedRoute: null,
   hour: 0,
   heatmapOn: true,
+  heatmapMetric: 'risk',
   playing: false,
   selectRoute: (selectedRoute) => set({ selectedRoute }),
   setHour: (hour) => set({ hour: Math.max(0, Math.min(MAX_HOUR, Math.round(hour))) }),
   setHeatmapOn: (heatmapOn) => set({ heatmapOn }),
+  setHeatmapMetric: (heatmapMetric) => set({ heatmapMetric }),
   setPlaying: (playing) => set({ playing }),
 }))
 

@@ -4,14 +4,8 @@ import { IconLayer, PathLayer, ScatterplotLayer, TextLayer } from '@deck.gl/laye
 
 import type { Checkpoint, HeatmapResponse, PlanResponse, Route } from '@/api/client'
 import { formatClock, formatMiles, formatNumber } from '@/lib/format'
-import {
-  HEATMAP_COLOR_RANGE,
-  HEATMAP_DOMAIN,
-  heatmapWeight,
-  levelLabel,
-  levelRgb,
-  type Rgb,
-} from '@/lib/risk'
+import { heatmapEncoding, type HeatmapMetric } from '@/lib/heatmap-metrics'
+import { levelLabel, levelRgb, type Rgb } from '@/lib/risk'
 
 import { gridSpacingM, metersPerPixel, midpointAlong, type LonLat } from './geometry'
 import { METERS_PER_MILE, stormCentreAt } from './storm'
@@ -27,6 +21,7 @@ interface LayerInputs {
   plan: PlanResponse | undefined
   heatmap: HeatmapResponse | undefined
   heatmapOn: boolean
+  heatmapMetric: HeatmapMetric
   hour: number
   selectedRoute: string | null
   zoom: number
@@ -70,7 +65,8 @@ function under(beforeId: string | undefined): { beforeId?: string } {
 }
 
 export function buildLayers(inputs: LayerInputs): Layer[] {
-  const { plan, heatmap, heatmapOn, hour, selectedRoute, zoom, beforeId, onSelectRoute } = inputs
+  const { plan, heatmap, heatmapOn, heatmapMetric, hour, selectedRoute, zoom, beforeId, onSelectRoute } =
+    inputs
   const layers: Layer[] = []
   if (!plan) return layers
 
@@ -99,22 +95,23 @@ export function buildLayers(inputs: LayerInputs): Layer[] {
     const n = heatmap.points.length
     const meanLat = heatmap.points.reduce((sum, p) => sum + p[1], 0) / n
     const radius = (HEATMAP_GRID_SPACINGS * gridSpacingM(heatmap.points)) / metersPerPixel(zoom, meanLat)
+    const encoding = heatmapEncoding(heatmap, heatmapMetric)
     layers.push(
       new HeatmapLayer<number>({
         id: 'risk-heatmap',
         ...under(beforeId),
         data: Array.from({ length: n }, (_, i) => i),
         getPosition: (i) => heatmap.points[i] as LonLat,
-        getWeight: (i) => heatmapWeight(heatmap.levels[hour * n + i]),
+        getWeight: (i) => encoding.weight(hour * n + i),
         // MEAN, not SUM: a place with more grid points must not look riskier than it is.
         aggregation: 'MEAN',
         // With a colour domain set, deck.gl ignores `threshold`; the domain does the fading.
-        colorDomain: HEATMAP_DOMAIN,
-        colorRange: HEATMAP_COLOR_RANGE,
+        colorDomain: encoding.colorDomain,
+        colorRange: encoding.colorRange,
         radiusPixels: Math.min(160, Math.max(14, radius)),
         weightsTextureSize: 1024,
         opacity: 0.55,
-        updateTriggers: { getWeight: [hour, heatmap] },
+        updateTriggers: { getWeight: [hour, heatmap, heatmapMetric] },
       }),
     )
   }

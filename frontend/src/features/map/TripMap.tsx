@@ -40,6 +40,7 @@ export default function TripMap({ plan, heatmap }: Props) {
   const selectRoute = useUiStore((s) => s.selectRoute)
   const hour = useUiStore((s) => s.hour)
   const heatmapOn = useUiStore((s) => s.heatmapOn)
+  const heatmapMetric = useUiStore((s) => s.heatmapMetric)
 
   const fitToPlan = useCallback(() => {
     const map = mapRef.current
@@ -56,13 +57,14 @@ export default function TripMap({ plan, heatmap }: Props) {
         plan,
         heatmap,
         heatmapOn,
+        heatmapMetric,
         hour,
         selectedRoute,
         zoom,
         beforeId,
         onSelectRoute: selectRoute,
       }),
-    [plan, heatmap, heatmapOn, hour, selectedRoute, zoom, beforeId, selectRoute],
+    [plan, heatmap, heatmapOn, heatmapMetric, hour, selectedRoute, zoom, beforeId, selectRoute],
   )
   const timeZone = plan?.trip.timezone ?? 'UTC'
   const simulated = plan?.trip.weather_source === 'simulated'

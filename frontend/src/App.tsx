@@ -25,6 +25,7 @@ export default function App() {
   const setHour = useUiStore((s) => s.setHour)
   const setPlaying = useUiStore((s) => s.setPlaying)
   const heatmapOn = useUiStore((s) => s.heatmapOn)
+  const heatmapMetric = useUiStore((s) => s.heatmapMetric)
   const simulated = plan.data?.trip.weather_source === 'simulated'
 
   // A new plan focuses the recommended route (or the top-ranked one), stops playback and
@@ -77,6 +78,7 @@ export default function App() {
             </MapErrorBoundary>
             <Legend
               heatmapOn={heatmapOn && !!plan.data}
+              heatmapMetric={heatmapMetric}
               stormRadiusMiles={simulated ? (plan.data?.trip.storm?.wind_radius_miles ?? null) : null}
             />
             {simulated && (

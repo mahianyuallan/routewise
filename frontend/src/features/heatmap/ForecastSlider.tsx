@@ -5,7 +5,9 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { formatDateTime, hoursBetween, offsetLabel } from '@/lib/format'
+import { HEATMAP_METRICS, type HeatmapMetric } from '@/lib/heatmap-metrics'
 import { MAX_HOUR, usePlayback, useUiStore } from '@/store/ui-store'
 
 interface Props {
@@ -24,6 +26,8 @@ export function ForecastSlider({ plan, heatmap, loading }: Props) {
   const setHour = useUiStore((s) => s.setHour)
   const heatmapOn = useUiStore((s) => s.heatmapOn)
   const setHeatmapOn = useUiStore((s) => s.setHeatmapOn)
+  const heatmapMetric = useUiStore((s) => s.heatmapMetric)
+  const setHeatmapMetric = useUiStore((s) => s.setHeatmapMetric)
   const playing = useUiStore((s) => s.playing)
   const setPlaying = useUiStore((s) => s.setPlaying)
   usePlayback(playing && !!heatmap)
@@ -50,9 +54,27 @@ export function ForecastSlider({ plan, heatmap, loading }: Props) {
   return (
     <div className="border-t bg-background px-4 py-3">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-sm">
-        <div className="flex items-center gap-2">
-          <Switch id="heatmap-toggle" checked={heatmapOn} onCheckedChange={setHeatmapOn} />
-          <Label htmlFor="heatmap-toggle">Weather risk heatmap</Label>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <div className="flex items-center gap-2">
+            <Switch id="heatmap-toggle" checked={heatmapOn} onCheckedChange={setHeatmapOn} />
+            <Label htmlFor="heatmap-toggle">Heatmap</Label>
+          </div>
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            size="sm"
+            spacing={0}
+            aria-label="Heatmap shows"
+            value={heatmapMetric}
+            onValueChange={(value) => value && setHeatmapMetric(value as HeatmapMetric)}
+            disabled={!heatmapOn}
+          >
+            {HEATMAP_METRICS.map((metric) => (
+              <ToggleGroupItem key={metric.value} value={metric.value}>
+                {metric.label}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
           {loading && <span className="text-xs text-muted-foreground">loading…</span>}
         </div>
         {/* Silent while playing, so a screen reader isn't read a new time every step. */}

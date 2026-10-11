@@ -82,6 +82,19 @@ describe('ForecastSlider playback', () => {
     expect(hour()).toBe(2)
   })
 
+  it('switches the heatmap between risk and the weather readings', () => {
+    useUiStore.setState({ heatmapOn: true, heatmapMetric: 'risk' })
+    render(<ForecastSlider plan={plan} heatmap={heatmap} loading={false} />)
+    fireEvent.click(screen.getByRole('radio', { name: 'Rain' }))
+    expect(useUiStore.getState().heatmapMetric).toBe('rain')
+  })
+
+  it('disables the metric switch while the heatmap is off', () => {
+    useUiStore.setState({ heatmapOn: false })
+    render(<ForecastSlider plan={plan} heatmap={heatmap} loading={false} />)
+    expect(screen.getByRole('radio', { name: 'Wind' })).toBeDisabled()
+  })
+
   it('cannot play before the heatmap has loaded', () => {
     render(<ForecastSlider plan={plan} heatmap={undefined} loading />)
     expect(screen.getByRole('button', { name: /play/i })).toBeDisabled()
