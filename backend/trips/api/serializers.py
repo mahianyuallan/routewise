@@ -128,7 +128,7 @@ class TripEchoSerializer(serializers.Serializer):
     load_lb = serializers.IntegerField()
     spacing_requested = serializers.IntegerField()
     spacing_miles = serializers.IntegerField(help_text="Spacing used, widened if the trip is long.")
-    weather_source = serializers.CharField()
+    weather_source = serializers.ChoiceField(choices=["forecast"])
 
 
 class WeatherSerializer(serializers.Serializer):

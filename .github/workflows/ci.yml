@@ -30,3 +30,30 @@ jobs:
         run: |
           uv export --format requirements.txt --no-hashes --no-dev -o /tmp/requirements.txt
           diff <(grep -v '^#' requirements.txt) <(grep -v '^#' /tmp/requirements.txt)
+      - name: Frontend API types are current
+        run: |
+          uv run python manage.py spectacular --file /tmp/openapi.yml
+          diff /tmp/openapi.yml ../frontend/openapi.yml
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Format
+        run: npm run format:check
+      - name: Test
+        run: npm test
+      - name: Build
+        run: npm run build

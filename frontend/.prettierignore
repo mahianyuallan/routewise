@@ -1,0 +1,7 @@
+# Generated or vendored: keep their own formatting
+src/components/ui/
+src/api/schema.d.ts
+openapi.yml
+dist/
+node_modules/
+package-lock.json
