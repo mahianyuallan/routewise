@@ -66,7 +66,11 @@ export function gridSpacingM(points: number[][]): number {
   return nearest[Math.floor(nearest.length / 2)]
 }
 
-/** Ground metres covered by one screen pixel at this zoom and latitude (Web Mercator). */
+/**
+ * Ground metres covered by one screen pixel at this MapLibre zoom and latitude.
+ * MapLibre zoom levels count 512-pixel tiles, so zoom 0 shows the world in 512 px: one
+ * level finer than the 256-pixel Web Mercator convention, hence `zoom + 1`.
+ */
 export function metersPerPixel(zoom: number, latitude: number): number {
-  return (156_543.03 * Math.cos((latitude * Math.PI) / 180)) / 2 ** zoom
+  return (156_543.03 * Math.cos((latitude * Math.PI) / 180)) / 2 ** (zoom + 1)
 }
