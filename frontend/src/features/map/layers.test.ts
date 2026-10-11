@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest'
 
 import type { Checkpoint } from '@/api/client'
 
-import { checkpointTooltip, type CheckpointDatum } from './layers'
+import { mapTooltip, type CheckpointDatum } from './layers'
+import type { Truck } from './trucks'
 
 const checkpoint: Checkpoint = {
   index: 17,
@@ -19,19 +20,58 @@ const checkpoint: Checkpoint = {
   reason: 'No Travel: 51.1 mph wind with a 35,000 lb load (load rule 2)',
 }
 const datum: CheckpointDatum = { checkpoint, route: 'A', selected: true }
-const info = { object: datum, layer: { id: 'checkpoints' } } as unknown as PickingInfo
 
-describe('checkpointTooltip', () => {
-  it('shows the ETA in the trip zone, the level and its reason', () => {
-    const html = checkpointTooltip(info, 'America/Chicago')?.html ?? ''
+function picked(object: unknown, layerId: string): PickingInfo {
+  return { object, layer: { id: layerId } } as unknown as PickingInfo
+}
+
+function truck(overrides: Partial<Truck>): Truck {
+  return {
+    route: 'B',
+    position: [-100, 35],
+    mile: 412.4,
+    lengthMiles: 805,
+    status: 'driving',
+    level: 'high',
+    at: '2026-10-12T00:00:00Z',
+    ...overrides,
+  }
+}
+
+describe('mapTooltip', () => {
+  it('shows a checkpoint with its ETA in the trip zone, the level and its reason', () => {
+    const html = mapTooltip(picked(datum, 'checkpoints'), 'America/Chicago')?.html ?? ''
     expect(html).toContain('Route A · mile 425 · ETA 20:01 CDT')
     expect(html).toContain('load rule 2')
     expect(html).not.toContain('Simulated')
   })
 
   it('says the weather is simulated when it is', () => {
-    expect(checkpointTooltip(info, 'America/Chicago', true)?.html).toContain(
+    expect(mapTooltip(picked(datum, 'checkpoints'), 'America/Chicago', true)?.html).toContain(
       'Simulated weather, not a forecast',
     )
+  })
+
+  it('shows where a truck is at the slider hour and the level of its stretch', () => {
+    const html = mapTooltip(picked(truck({}), 'trucks'), 'America/Chicago')?.html ?? ''
+    expect(html).toContain('Route B truck · 19:00 CDT')
+    expect(html).toContain('Mile 412 of 805')
+    expect(html).toContain('High stretch')
+  })
+
+  it('says when a truck has not left or has arrived', () => {
+    const waiting = mapTooltip(
+      picked(truck({ status: 'waiting', mile: 0 }), 'truck-discs'),
+      'America/Chicago',
+    )
+    expect(waiting?.html).toContain('Waiting at the origin')
+    expect(waiting?.html).not.toContain('stretch')
+    const arrived = mapTooltip(picked(truck({ status: 'arrived', mile: 805 }), 'trucks'), 'America/Chicago')
+    expect(arrived?.html).toContain('Arrived at the destination')
+  })
+
+  it('has nothing to say about other layers', () => {
+    expect(mapTooltip(picked({}, 'risk-heatmap'), 'America/Chicago')).toBeNull()
+    expect(mapTooltip(picked(undefined, 'checkpoints'), 'America/Chicago')).toBeNull()
   })
 })

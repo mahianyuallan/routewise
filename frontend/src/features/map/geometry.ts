@@ -32,21 +32,26 @@ export function boundsOf(lines: number[][][]): [LonLat, LonLat] | null {
     : null
 }
 
-/** The point halfway along a line, by distance. */
-export function midpointAlong(line: number[][]): LonLat {
+/** The point a fraction (0 to 1) of the way along a line, by distance. */
+export function pointAlong(line: number[][], fraction: number): LonLat {
   if (line.length === 0) return [0, 0]
   const steps: number[] = [0]
   for (let i = 1; i < line.length; i++) {
     steps.push(steps[i - 1] + haversineM(line[i - 1] as LonLat, line[i] as LonLat))
   }
-  const half = steps[steps.length - 1] / 2
+  const target = Math.min(1, Math.max(0, fraction)) * steps[steps.length - 1]
   let i = 1
-  while (i < steps.length && steps[i] < half) i++
+  while (i < steps.length && steps[i] < target) i++
   if (i >= steps.length) return line[line.length - 1] as LonLat
-  const t = steps[i] === steps[i - 1] ? 0 : (half - steps[i - 1]) / (steps[i] - steps[i - 1])
+  const t = steps[i] === steps[i - 1] ? 0 : (target - steps[i - 1]) / (steps[i] - steps[i - 1])
   const [x0, y0] = line[i - 1]
   const [x1, y1] = line[i]
   return [x0 + (x1 - x0) * t, y0 + (y1 - y0) * t]
+}
+
+/** The point halfway along a line, by distance. */
+export function midpointAlong(line: number[][]): LonLat {
+  return pointAlong(line, 0.5)
 }
 
 /** Typical gap between neighbouring grid points, in metres (the median nearest-neighbour distance). */

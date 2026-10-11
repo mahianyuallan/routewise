@@ -23,16 +23,19 @@ export default function App() {
   const server = useServerStatus()
   const selectRoute = useUiStore((s) => s.selectRoute)
   const setHour = useUiStore((s) => s.setHour)
+  const setPlaying = useUiStore((s) => s.setPlaying)
   const heatmapOn = useUiStore((s) => s.heatmapOn)
   const simulated = plan.data?.trip.weather_source === 'simulated'
 
-  // A new plan focuses the recommended route (or the top-ranked one) and rewinds the slider.
+  // A new plan focuses the recommended route (or the top-ranked one), stops playback and
+  // rewinds the slider.
   useEffect(() => {
     if (plan.data && !plan.isPlaceholderData) {
       selectRoute(plan.data.recommendation.route ?? plan.data.ranking[0] ?? null)
+      setPlaying(false)
       setHour(0)
     }
-  }, [plan.data, plan.isPlaceholderData, selectRoute, setHour])
+  }, [plan.data, plan.isPlaceholderData, selectRoute, setPlaying, setHour])
 
   return (
     <div className="flex h-dvh flex-col">

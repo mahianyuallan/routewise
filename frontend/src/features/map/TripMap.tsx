@@ -10,7 +10,7 @@ import type { HeatmapResponse, PlanResponse } from '@/api/client'
 import { useUiStore } from '@/store/ui-store'
 
 import { boundsOf } from './geometry'
-import { buildLayers, checkpointTooltip } from './layers'
+import { buildLayers, mapTooltip } from './layers'
 
 // MapLibre 6 needs the bundler to point it at its worker, once, before the first map renders.
 // This module is lazy-loaded, so the map libraries stay out of the first paint.
@@ -86,7 +86,7 @@ export default function TripMap({ plan, heatmap }: Props) {
       <DeckGLOverlay
         interleaved
         layers={layers}
-        getTooltip={(info) => checkpointTooltip(info, timeZone, simulated)}
+        getTooltip={(info) => mapTooltip(info, timeZone, simulated)}
       />
     </MapGL>
   )
