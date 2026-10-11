@@ -108,9 +108,9 @@ export function buildLayers(inputs: LayerInputs): Layer[] {
         getWeight: (i) => heatmapWeight(heatmap.levels[hour * n + i]),
         // MEAN, not SUM: a place with more grid points must not look riskier than it is.
         aggregation: 'MEAN',
+        // With a colour domain set, deck.gl ignores `threshold`; the domain does the fading.
         colorDomain: HEATMAP_DOMAIN,
         colorRange: HEATMAP_COLOR_RANGE,
-        threshold: 0.02,
         radiusPixels: Math.min(160, Math.max(14, radius)),
         weightsTextureSize: 1024,
         opacity: 0.55,

@@ -57,13 +57,18 @@ export function levelRgb(level: RiskLevel | null | undefined): Rgb {
   return hexToRgb(levelColor(level))
 }
 
-/** Heatmap colours, one per level, mapped linearly over HEATMAP_DOMAIN. */
+/** Heatmap colours, one per level, in order. */
 export const HEATMAP_COLOR_RANGE: Rgb[] = LEVELS.map((level) => hexToRgb(LEVEL_COLOR[level]))
 
-/** Weights run 1 (Low) to 5 (No Travel) so Low sits inside the domain instead of fading out. */
-export const HEATMAP_DOMAIN: [number, number] = [1, 5]
+/**
+ * deck.gl's HeatmapLayer reads a weight's colour at weight / colorDomain[1] along a texture
+ * with one texel per colour, blending neighbouring texels, and fades weights below
+ * colorDomain[0]. A level's score plus a half lands on the centre of its own texel, so a
+ * uniformly Low area shows the Low colour rather than a blend of Low and Moderate.
+ */
+export const HEATMAP_DOMAIN: [number, number] = [0.5, LEVELS.length]
 
 /** The API encodes a point-hour as its score, or -1 for No data, which must stay transparent. */
 export function heatmapWeight(levelCode: number): number {
-  return levelCode < 0 ? 0 : levelCode + 1
+  return levelCode < 0 ? 0 : levelCode + 0.5
 }

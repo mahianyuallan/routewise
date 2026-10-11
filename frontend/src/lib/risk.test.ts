@@ -33,10 +33,13 @@ describe('risk levels', () => {
     expect(HEATMAP_COLOR_RANGE).toHaveLength(5)
   })
 
-  it('maps API level codes onto the heatmap domain and hides No data', () => {
-    expect([0, 1, 2, 3, 4].map(heatmapWeight)).toEqual([1, 2, 3, 4, 5])
+  it('puts every level on the centre of its own heatmap colour and hides No data', () => {
+    // deck.gl samples the colour texture at weight / domain max, one texel per colour,
+    // texel i centred at (i + 0.5) / count.
+    const texel = (weight: number) => (weight / HEATMAP_DOMAIN[1]) * HEATMAP_COLOR_RANGE.length - 0.5
+    expect([0, 1, 2, 3, 4].map((code) => texel(heatmapWeight(code)))).toEqual([0, 1, 2, 3, 4])
+    // Weights at or above the domain minimum are fully opaque, so Low never fades out.
+    expect(heatmapWeight(0)).toBeGreaterThanOrEqual(HEATMAP_DOMAIN[0])
     expect(heatmapWeight(-1)).toBe(0)
-    expect(heatmapWeight(0)).toBe(HEATMAP_DOMAIN[0])
-    expect(heatmapWeight(4)).toBe(HEATMAP_DOMAIN[1])
   })
 })
