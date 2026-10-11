@@ -1,0 +1,31 @@
+# Secrets: only the .env.example files are committed
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+staticfiles/
+db.sqlite3
+
+# Node
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+coverage/
+
+# Hosting
+.vercel/
+
+# OS and editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
