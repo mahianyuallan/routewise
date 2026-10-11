@@ -162,11 +162,13 @@ def find_routes(
             pool.submit(request_routes, origin, destination, depart_utc, load_lb, **call)
             for call in calls
         ]
-        for future in futures:
+        for call, future in zip(calls, futures, strict=True):
             try:
                 routes.extend(future.result())
             except (ProviderError, RouteNotFound) as exc:
-                log.info("TomTom call failed: %s", exc)
+                log.warning(
+                    "TomTom %s call failed: %s (%s)", call["route_type"], exc, _root_cause(exc)
+                )
                 errors.append(exc)
     if not routes:
         raise errors[0]
@@ -178,6 +180,13 @@ def find_routes(
     elif len(distinct) < MAX_ROUTES:
         notices.append(f"Only {len(distinct)} distinct truck routes exist between these places.")
     return distinct[:MAX_ROUTES], notices
+
+
+def _root_cause(exc: BaseException) -> str:
+    """The innermost chained exception: the HTTP status or network error behind a failure."""
+    while exc.__cause__ is not None:
+        exc = exc.__cause__
+    return repr(exc)
 
 
 def _via_points(
