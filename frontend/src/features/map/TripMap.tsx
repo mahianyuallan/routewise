@@ -11,6 +11,7 @@ import { useUiStore } from '@/store/ui-store'
 
 import { boundsOf } from './geometry'
 import { buildLayers, mapTooltip } from './layers'
+import { simulatedStorm } from './storm'
 
 // MapLibre 6 needs the bundler to point it at its worker, once, before the first map renders.
 // This module is lazy-loaded, so the map libraries stay out of the first paint.
@@ -67,7 +68,7 @@ export default function TripMap({ plan, heatmap }: Props) {
     [plan, heatmap, heatmapOn, heatmapMetric, hour, selectedRoute, zoom, beforeId, selectRoute],
   )
   const timeZone = plan?.trip.timezone ?? 'UTC'
-  const simulated = plan?.trip.weather_source === 'simulated'
+  const simulated = simulatedStorm(plan) !== null
 
   return (
     <MapGL

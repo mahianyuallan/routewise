@@ -11,6 +11,8 @@ import {
 import { LEVELS, LEVEL_COLOR, LEVEL_LABEL, NO_DATA_COLOR, NO_DATA_LABEL } from '@/lib/risk'
 import { cn } from '@/lib/utils'
 
+import { STORM_RGB } from './storm'
+
 interface Props {
   heatmapOn: boolean
   heatmapMetric?: HeatmapMetric
@@ -73,10 +75,12 @@ function LegendBody({ heatmapOn, heatmapMetric, stormRadiusMiles }: Required<Pro
       {stormRadiusMiles !== null && (
         <div className="mt-2 space-y-1 border-t pt-1.5">
           <div className="flex items-center gap-2">
-            {/* Same colour as the ring drawn on the map. */}
             <span
               className="size-3 rounded-full border-[1.5px]"
-              style={{ borderColor: 'rgb(180 83 9)', background: 'rgb(180 83 9 / 0.12)' }}
+              style={{
+                borderColor: `rgb(${STORM_RGB.join(' ')})`,
+                background: `rgb(${STORM_RGB.join(' ')} / 0.12)`,
+              }}
               aria-hidden
             />
             Simulated storm, {formatNumber(stormRadiusMiles)} mi radius

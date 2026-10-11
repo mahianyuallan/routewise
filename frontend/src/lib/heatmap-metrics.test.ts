@@ -41,6 +41,13 @@ describe('heatmap metrics', () => {
     expect(heatmapEncoding(heatmap, 'snow').weight(0)).toBe(0)
   })
 
+  it('leaves out points without a reading, but keeps a real zero', () => {
+    const risk = heatmapEncoding(heatmap, 'risk')
+    expect([0, 1, 2].map(risk.present)).toEqual([true, true, false])
+    const rain = heatmapEncoding(heatmap, 'rain')
+    expect([0, 1, 2].map(rain.present)).toEqual([true, true, false]) // 0 in/hr is dry, not missing
+  })
+
   it('keeps the thresholds inside each scale, in order', () => {
     for (const scale of Object.values(WEATHER_SCALES)) {
       expect(scale.ticks).toEqual([...scale.ticks].sort((a, b) => a - b))

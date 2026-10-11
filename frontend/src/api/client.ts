@@ -54,6 +54,14 @@ export function isApiError(error: unknown): error is ApiError {
   return error instanceof ApiError
 }
 
+/** The weather provider as the API names it in errors. */
+export const WEATHER_PROVIDER = 'Open-Meteo'
+
+/** True when the forecast is what failed, so simulated weather would still work. */
+export function isForecastError(error: unknown): boolean {
+  return isApiError(error) && error.provider === WEATHER_PROVIDER
+}
+
 export function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }

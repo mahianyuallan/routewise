@@ -1,7 +1,7 @@
 import { CloudLightningIcon, CloudOffIcon, LoaderCircleIcon } from 'lucide-react'
 import { Suspense, lazy, useEffect, useState } from 'react'
 
-import { errorMessage, type PlanRequest, type PlanResponse } from '@/api/client'
+import { errorMessage, isForecastError, type PlanRequest, type PlanResponse } from '@/api/client'
 import { useHeatmap, usePlan, useServerStatus } from '@/api/queries'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { ForecastSlider } from '@/features/heatmap/ForecastSlider'
@@ -9,6 +9,7 @@ import { planSummary } from '@/features/layout/plan-summary'
 import { TripPanel } from '@/features/layout/TripPanel'
 import { Legend } from '@/features/map/Legend'
 import { MapErrorBoundary } from '@/features/map/MapErrorBoundary'
+import { simulatedStorm } from '@/features/map/storm'
 import { PlanError } from '@/features/results/PlanError'
 import { Recommendation } from '@/features/results/Recommendation'
 import { RouteCards } from '@/features/results/RouteCards'
@@ -32,7 +33,7 @@ export default function App() {
   const setPlaying = useUiStore((s) => s.setPlaying)
   const heatmapOn = useUiStore((s) => s.heatmapOn)
   const heatmapMetric = useUiStore((s) => s.heatmapMetric)
-  const simulated = plan.data?.trip.weather_source === 'simulated'
+  const storm = simulatedStorm(plan.data)
 
   // A new plan focuses the recommended route (or the top-ranked one), stops playback,
   // rewinds the slider and, on a phone, lowers the sheet so the map shows the routes.
@@ -92,9 +93,9 @@ export default function App() {
             <Legend
               heatmapOn={heatmapOn && !!plan.data}
               heatmapMetric={heatmapMetric}
-              stormRadiusMiles={simulated ? (plan.data?.trip.storm?.wind_radius_miles ?? null) : null}
+              stormRadiusMiles={storm?.wind_radius_miles ?? null}
             />
-            {simulated && (
+            {storm && (
               <div className="pointer-events-none absolute top-3 left-12 rounded-md bg-amber-600 px-2.5 py-1 text-xs font-semibold text-white shadow">
                 Simulated weather
               </div>
@@ -102,6 +103,7 @@ export default function App() {
             {heatmap.isError && plan.data && (
               <div className="absolute bottom-3 left-3 rounded-md bg-background/95 px-3 py-2 text-xs text-destructive shadow">
                 Heatmap unavailable: {errorMessage(heatmap.error)}
+                {isForecastError(heatmap.error) && ' Simulated weather needs no forecast.'}
               </div>
             )}
           </div>
@@ -161,8 +163,8 @@ function ServerStatus({ waking, unreachable }: { waking: boolean; unreachable: b
 
 /** Says, in words a screenshot can't lose, that the plan was scored against a made-up storm. */
 function SimulatedWeatherBanner({ plan }: { plan: PlanResponse }) {
-  const storm = plan.trip.storm
-  if (plan.trip.weather_source !== 'simulated' || !storm) return null
+  const storm = simulatedStorm(plan)
+  if (!storm) return null
   return (
     <Alert className="border-amber-500/60 bg-amber-50 text-amber-950 dark:bg-amber-950/40 dark:text-amber-100">
       <CloudLightningIcon />

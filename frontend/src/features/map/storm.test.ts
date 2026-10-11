@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
-import { stormCentreAt, type Storm } from './storm'
+import type { PlanResponse } from '@/api/client'
+
+import { simulatedStorm, stormCentreAt, type Storm } from './storm'
 
 const storm: Storm = {
   lat: 60,
@@ -27,5 +29,17 @@ describe('stormCentreAt', () => {
 
   it('was west of the centre before its time', () => {
     expect(stormCentreAt(storm, '2026-10-13T10:00:00Z')[0]).toBeLessThan(-100)
+  })
+})
+
+describe('simulatedStorm', () => {
+  const plan = (weather_source: 'forecast' | 'simulated', withStorm: boolean) =>
+    ({ trip: { weather_source, storm: withStorm ? storm : null } }) as PlanResponse
+
+  it('is the storm on a simulated plan and nothing on a forecast', () => {
+    expect(simulatedStorm(plan('simulated', true))).toBe(storm)
+    expect(simulatedStorm(plan('forecast', false))).toBeNull()
+    expect(simulatedStorm(plan('forecast', true))).toBeNull()
+    expect(simulatedStorm(undefined)).toBeNull()
   })
 })

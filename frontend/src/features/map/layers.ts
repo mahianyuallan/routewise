@@ -7,8 +7,8 @@ import { formatClock, formatMiles, formatNumber } from '@/lib/format'
 import { heatmapEncoding, type HeatmapMetric } from '@/lib/heatmap-metrics'
 import { levelLabel, levelRgb, type Rgb } from '@/lib/risk'
 
-import { gridSpacingM, metersPerPixel, midpointAlong, type LonLat } from './geometry'
-import { METERS_PER_MILE, stormCentreAt } from './storm'
+import { METERS_PER_MILE, gridSpacingM, metersPerPixel, midpointAlong, type LonLat } from './geometry'
+import { STORM_RGB, simulatedStorm, stormCentreAt } from './storm'
 import { truckAt, type Truck } from './trucks'
 
 export interface CheckpointDatum {
@@ -43,7 +43,6 @@ function withAlpha(rgb: Rgb, alpha: number): Rgba {
  * spacings) stays tight enough that each point still decides the colour around it.
  */
 const HEATMAP_GRID_SPACINGS = 2.5
-const STORM_RGB: Rgb = [180, 83, 9]
 const WAITING_OR_ARRIVED_RGB: Rgb = [60, 60, 60]
 
 // Lucide's "truck" icon (ISC licence), drawn as a mask so deck.gl can tint it.
@@ -79,7 +78,7 @@ export function buildLayers(inputs: LayerInputs): Layer[] {
 
   // The simulated storm's wind extent, where it is at the slider's hour. It goes under the
   // heatmap so its tint never shifts a risk colour; the legend names it.
-  const storm = plan.trip.weather_source === 'simulated' ? plan.trip.storm : null
+  const storm = simulatedStorm(plan)
   if (storm) {
     layers.push(
       new ScatterplotLayer<LonLat>({
@@ -107,7 +106,9 @@ export function buildLayers(inputs: LayerInputs): Layer[] {
       new HeatmapLayer<number>({
         id: 'risk-heatmap',
         ...under(beforeId),
-        data: Array.from({ length: n }, (_, i) => i),
+        // Points without a reading this hour are left out rather than weighted 0: with MEAN a
+        // zero still counts, and would pull its neighbours' colour toward Low or dry.
+        data: Array.from({ length: n }, (_, i) => i).filter((i) => encoding.present(hour * n + i)),
         getPosition: (i) => heatmap.points[i] as LonLat,
         getWeight: (i) => encoding.weight(hour * n + i),
         // MEAN, not SUM: a place with more grid points must not look riskier than it is.

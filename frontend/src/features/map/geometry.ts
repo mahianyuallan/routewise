@@ -1,6 +1,7 @@
 export type LonLat = [number, number]
 
-const EARTH_RADIUS_M = 6_371_008.8
+export const EARTH_RADIUS_M = 6_371_008.8
+export const METERS_PER_MILE = 1609.344
 
 export function haversineM(a: LonLat, b: LonLat): number {
   const toRad = (deg: number) => (deg * Math.PI) / 180

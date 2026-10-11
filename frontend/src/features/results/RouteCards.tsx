@@ -3,6 +3,7 @@ import { Fragment } from 'react'
 import type { PlanResponse, Route } from '@/api/client'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { simulatedStorm } from '@/features/map/storm'
 import { formatDateTime, formatDuration, formatMiles, formatNumber } from '@/lib/format'
 import { LEVELS, LEVEL_COLOR, LEVEL_LABEL, NO_DATA_COLOR, levelLabel } from '@/lib/risk'
 import { cn } from '@/lib/utils'
@@ -31,7 +32,7 @@ export function RouteCards({ plan, dimmed }: Props) {
   const selectedRoute = useUiStore((s) => s.selectedRoute)
   const selectRoute = useUiStore((s) => s.selectRoute)
   const routes = [...plan.routes].sort((a, b) => a.rank - b.rank)
-  const simulated = plan.trip.weather_source === 'simulated'
+  const simulated = simulatedStorm(plan) !== null
 
   return (
     <div className={cn('space-y-3 transition-opacity', dimmed && 'opacity-50')} aria-busy={dimmed}>

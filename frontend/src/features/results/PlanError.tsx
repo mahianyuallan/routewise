@@ -1,9 +1,7 @@
 import { TriangleAlertIcon } from 'lucide-react'
 
-import { errorMessage, isApiError } from '@/api/client'
+import { errorMessage, isApiError, isForecastError } from '@/api/client'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-
-const WEATHER_PROVIDER = 'Open-Meteo'
 
 /**
  * Why a plan failed, in words. When the forecast is what failed, it points at simulated
@@ -24,7 +22,7 @@ export function PlanError({ error }: { error: unknown }) {
       }[api.code] ?? 'Planning failed')
     : 'Planning failed'
   const message = api ? api.message : errorMessage(error)
-  const forecastFailed = api?.provider === WEATHER_PROVIDER
+  const forecastFailed = isForecastError(error)
   return (
     <Alert variant="destructive">
       <TriangleAlertIcon />

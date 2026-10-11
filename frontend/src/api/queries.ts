@@ -28,6 +28,10 @@ export function usePlan(trip: PlanRequest | null) {
     // The previous plan stays on screen, dimmed, while a changed trip is re-planned.
     placeholderData: keepPreviousData,
     staleTime: FIFTEEN_MINUTES,
+    // A plan answers the trip as submitted. Refetching it behind the user's back would reset
+    // their view and spend weather quota, so it changes only when the trip does.
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     retry: retryServerErrorsOnce,
   })
 }
@@ -52,6 +56,8 @@ export function useHeatmap(plan: PlanResponse | undefined) {
     queryFn: ({ signal }) => fetchHeatmap(body!, signal),
     enabled: body !== null,
     staleTime: FIFTEEN_MINUTES,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     retry: retryServerErrorsOnce,
   })
 }

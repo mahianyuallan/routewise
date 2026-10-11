@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
-import { ApiError } from './client'
+import { ApiError, isForecastError } from './client'
+
+describe('isForecastError', () => {
+  it('is true only when the weather provider failed', () => {
+    expect(isForecastError(new ApiError('Quota used up.', 503, 'provider_quota', 'Open-Meteo'))).toBe(true)
+    expect(isForecastError(new ApiError('Busy.', 503, 'provider_unavailable', 'TomTom'))).toBe(false)
+    expect(isForecastError(new Error('Open-Meteo'))).toBe(false)
+  })
+})
 
 describe('ApiError.retriable', () => {
   it('retries network failures and server errors', () => {

@@ -45,6 +45,8 @@ const READINGS = { wind: 'wind_mph', rain: 'rain_in_hr', snow: 'snow_in_hr' } as
 export interface HeatmapEncoding {
   /** Weight of an entry in the hour-major arrays (index = hour * points + point). */
   weight: (index: number) => number
+  /** False where the forecast has no reading (No data); those points are left out. */
+  present: (index: number) => boolean
   colorRange: Rgb[]
   colorDomain: [number, number]
 }
@@ -57,14 +59,16 @@ export function heatmapEncoding(heatmap: HeatmapResponse, metric: HeatmapMetric)
   if (metric === 'risk') {
     return {
       weight: (i) => heatmapWeight(heatmap.levels[i]),
+      present: (i) => heatmap.levels[i] >= 0,
       colorRange: HEATMAP_COLOR_RANGE,
       colorDomain: HEATMAP_DOMAIN,
     }
   }
   const readings = heatmap[READINGS[metric]]
   return {
-    // A missing reading weighs nothing, like a dry or calm one: it stays transparent.
     weight: (i) => Math.max(0, readings[i] ?? 0),
+    // Zero is a real reading (calm, dry) and still counts; only a missing one is left out.
+    present: (i) => readings[i] !== null && readings[i] !== undefined,
     colorRange: BLUE_RANGE,
     colorDomain: WEATHER_SCALES[metric].domain,
   }
