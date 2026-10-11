@@ -2,9 +2,153 @@
 
 [![CI](https://github.com/mahianyuallan/routewise/actions/workflows/ci.yml/badge.svg)](https://github.com/mahianyuallan/routewise/actions/workflows/ci.yml)
 
-Weather-aware truck routing. RouteWise compares three truck routes between two US places by the weather each one will meet at the hour the truck gets there, scores it with Spotter's risk and load rules, and recommends the safest route.
+Weather-aware truck routing. RouteWise plans three truck routes between two US places, forecasts the weather at the hour the truck reaches each checkpoint, scores it with Spotter's risk and load rules, and recommends the safest route, with travel time as the tie-breaker. The map shows the routes, every checkpoint's risk and ETA, and a 48-hour risk heatmap of the corridor.
 
-**Status, 11 Oct 2026:** the backend API works and is tested; the React app is next. Live links and the walkthrough will be added here.
+![Dallas to Denver: three routes, checkpoint risk and the corridor heatmap](docs/images/dallas-denver.png)
+
+## Live demo
+
+| | |
+|---|---|
+| App | _added on submission_ |
+| API | _added on submission_ (`/api/docs/` is the interactive OpenAPI page) |
+| Walkthrough | _added on submission_ |
+
+The API runs on a free Render instance kept awake by a monitor. If it has dozed off, the page says so and the first plan takes about a minute longer.
+
+## How a plan is made
+
+1. **Places.** Origin and destination come from Geoapify autocomplete (US only), each with coordinates and an IANA time zone. Departure is entered as wall-clock time at the origin.
+2. **Routes.** Five TomTom Routing v1 calls run in parallel in truck mode for a standard 53-ft tractor-trailer: fastest, eco, short, and two routes steered through soft via points either side of the straight line. Near-duplicates (90% of their length within 250 m) are dropped and the first three distinct routes are labelled A, B and C.
+3. **Checkpoints.** Every 10, 25 or 50 miles along each route, plus the origin and destination. Each checkpoint's ETA is the departure plus TomTom's truck- and traffic-aware travel time to that point, interpolated from the route's own distance/time profile. Each checkpoint stands for the road halfway to its neighbours, so miles add up to the route length.
+4. **Weather.** Open-Meteo hourly forecasts, fetched once per 0.1° cell and cached for an hour. Sustained wind is interpolated to the ETA; rain, showers, snow and gusts come from the hour the truck is in (an ETA of 14:20 reads the 15:00 slot, which covers 14:00 to 15:00).
+5. **Risk.** The brief's thresholds and load rules give each checkpoint a level and a plain-language reason.
+6. **Ranking.** Miles at each level, average risk and travel time rank the routes; the UI names the rule that decided it.
+7. **Heatmap.** A grid of at most 200 points within 25 miles of any route, classified with the same rules and load for the departure hour and the 48 hours after it. The slider changes an index into frames already in memory, so scrubbing makes no requests.
+
+## Risk rules
+
+Thresholds from the brief, read as half-open ranges so every value lands in exactly one level. A value on a shared edge takes the higher level (35 mph is High); the brief's strict ">1.00" and ">3.0" keep exactly 1.00 in/hr of rain and 3.0 in/hr of snow at Severe.
+
+| Condition | Low | Moderate | High | Severe | No Travel |
+|---|---|---|---|---|---|
+| Wind (mph, sustained) | < 25 | 25 to < 35 | 35 to < 45 | 45 to < 55 | ≥ 55 |
+| Rain (in/hr, rain + showers) | < 0.10 | 0.10 to < 0.25 | 0.25 to < 0.50 | 0.50 to 1.00 | > 1.00 |
+| Snow (in/hr) | < 0.5 | 0.5 to < 1.0 | 1.0 to < 2.0 | 2.0 to 3.0 | > 3.0 |
+
+Load rules, applied to the wind level (load is cargo weight in pounds, exactly as entered):
+
+1. ≥ 55 mph → No Travel for any load.
+2. 45 to < 55 mph and load > 30,000 lb → No Travel.
+3. 35 to < 45 mph and load > 40,000 lb → Severe.
+
+A checkpoint's level is the worst of wind (after the load rules), rain and snow. Values are rounded to what the UI shows (0.1 mph, 0.01 in/hr) before classification, so the level always matches the number on screen. A missing forecast value makes the checkpoint "No data": it is never counted as Low, it is left out of averages, and a route with any No data checkpoint can't be recommended.
+
+Every boundary in the table, all three load rules and the rounding edge cases are parametrized tests in [`backend/trips/tests/test_risk.py`](backend/trips/tests/test_risk.py).
+
+## Ranking and the recommendation
+
+Routes are compared on each rule in turn, moving to the next only on a tie:
+
+0. Fewest No Travel miles (added: the brief's list doesn't mention No Travel, and without it a route with 50 No Travel miles and no Severe miles would beat a route with 10 Severe miles)
+1. Fewest Severe miles
+2. Fewest High miles
+3. Lowest average risk (Low 0 … No Travel 4, weighted by miles)
+4. Shortest travel time
+
+Miles are rounded to whole miles and average risk to one decimal before comparing, which keeps the order consistent across three routes. No Travel miles round up, so a short No Travel stretch can't pass as safe. Routes with missing weather rank after complete ones; a full tie keeps TomTom's order.
+
+**Worked example** (Dallas → Denver, 38,000 lb, the screenshot above):
+
+| Route | Miles | Time | No Travel | Severe | High | Average risk |
+|---|---|---|---|---|---|---|
+| A (fastest) | 883 | 11 h 51 min | 0 | 0 | 0 | 0.00 |
+| B (eco) | 795 | 12 h 27 min | 0 | 0 | 0 | 0.03 → 0.0 |
+| C (via) | 863 | 13 h 05 min | 0 | 0 | 0 | 0.00 |
+
+Rules 0 to 2 tie at zero. Rule 3 ties too, because 0.03 rounds to 0.0. Rule 4 decides: "Route A recommended. Shortest travel time: 11 h 51 min vs 12 h 27 min on Route B."
+
+If every route has No Travel conditions, the ranking is still shown but the recommendation is replaced by "No safe route at this departure time", pointing at the heatmap to find a clearer window.
+
+## Assumptions
+
+Where the brief leaves room, these are the calls made (each is a constant or a small function):
+
+- **Load is cargo weight**, 0 to 45,000 lb. TomTom gets the gross weight, load plus an assumed 35,000 lb tare, and a 53-ft rig profile (13'6" tall, 8'6" wide, about 72 ft long, 5 axles), so it avoids low bridges and weight-restricted roads. 45,000 + 35,000 lb is the 80,000 lb federal limit.
+- **Sustained wind** drives the rules; gusts are shown in the tooltip but not scored.
+- **The load rules are applied as written**, even though industry blow-over guidance usually flags light trailers as most at risk.
+- **The slider starts at the departure hour** (which is now when departing now), not the current hour, so a trip planned for Thursday gets Thursday's heatmap.
+- **ETAs assume continuous driving.** Hours-of-service breaks are out of scope.
+- **US only.** Autocomplete is filtered to the US and routes avoid border crossings.
+- **Departures within the next 7 days**, so the trip and its 48-hour window stay inside the 16-day forecast. Past times are rejected; a time that happens twice when clocks go back takes its first occurrence; a time that doesn't exist when they go forward is rejected.
+
+## API
+
+| Method and path | Purpose |
+|---|---|
+| `GET /api/health/` | Keep-alive and wake-up check |
+| `GET /api/places/?q=` | Up to 5 US places with coordinates and time zone |
+| `POST /api/plan/` | Routes, checkpoints, risk, ranking and recommendation for a trip. Responds with a `Server-Timing` header: `tomtom`, `weather`, `compute` |
+| `POST /api/heatmap/` | 49 hourly risk frames over the corridor, for the plan's routes |
+| `GET /api/docs/` | Swagger UI; `GET /api/schema/` is the OpenAPI document |
+
+The API is stateless: the heatmap call sends back the plan's simplified route outlines rather than looking up a stored plan, so a restart of the free instance loses nothing ([ADR 0003](docs/adr/0003-stateless-api.md)). The frontend's TypeScript types are generated from the OpenAPI schema, and CI fails if they drift.
+
+## Run it locally
+
+Backend (Python 3.13, [uv](https://docs.astral.sh/uv/)):
+
+```bash
+cd backend
+cp .env.example .env      # add free TomTom and Geoapify keys
+uv sync
+uv run python manage.py runserver
+```
+
+Frontend (Node 24):
+
+```bash
+cd frontend
+npm install
+npm run dev               # http://localhost:5173, proxies /api to the backend
+```
+
+Environment variables are listed in [`backend/.env.example`](backend/.env.example) and [`frontend/.env.example`](frontend/.env.example). Both provider keys stay on the server; the browser only talks to the API and to OpenFreeMap for map tiles.
+
+## Tests and CI
+
+```bash
+cd backend && uv run pytest        # 129 tests, every provider mocked with recorded responses
+cd frontend && npm test            # 20 tests: risk palette, time formatting, geometry, route cards
+```
+
+[GitHub Actions](.github/workflows/ci.yml) runs Ruff, pytest with coverage, oxlint, Prettier, Vitest and the production build on every push, and checks that `requirements.txt` matches the lockfile and that the frontend's API types match the backend's schema.
+
+## Performance
+
+Measured on an 883-mile Dallas → Denver plan with 10-mile checkpoints (90 per route), against the live providers:
+
+| | TomTom | Weather | Compute | Total |
+|---|---|---|---|---|
+| First plan (nothing cached), local machine | 5.1 s | 3.2 s | 0.1 s | 8.4 s |
+| Repeat with weather cached, local machine | 4.6 s | 0.02 s | 0.2 s | 4.9 s |
+| Render free instance | _added on submission_ | | | |
+
+What keeps it fast: the five routing calls run at once (TomTom's own alternatives took 11 to 14 s on this trip); weather is fetched per 0.1° cell and cached for an hour, so a changed load or departure re-plans in a few seconds; route geometry is simplified server-side; the map libraries load lazily after the form paints; and the slider only changes an index, so scrubbing 0 to 48 h makes no requests and allocates no data.
+
+## Deploy
+
+- **API:** [`render.yaml`](render.yaml) is a Render Blueprint for one free web service (`New +` → `Blueprint`). It asks only for the two provider keys. Health check: `/api/health/`.
+- **UI:** a Vercel project with root directory `frontend` and `VITE_API_BASE_URL` set to the API's origin.
+- **Keep-alive:** an UptimeRobot monitor on `/api/health/` every 5 minutes keeps the free instance inside its 15-minute idle window.
+
+## Known limitations
+
+- Forecasts are forecasts: a checkpoint shows the model's best estimate for that hour.
+- Wider checkpoint spacing can miss a short storm between checkpoints; the heatmap helps spot it.
+- ETAs ignore rest breaks, fuel stops and live incidents.
+- The free API instance has 0.1 CPU and sleeps after 15 idle minutes without the keep-alive monitor.
+- Open-Meteo's free API is for non-commercial use; a production deployment would need a subscription.
 
 ## Documents
 
@@ -13,24 +157,6 @@ Weather-aware truck routing. RouteWise compares three truck routes between two U
 - [Glossary](GLOSSARY.md)
 - [Architecture decision records](docs/adr/)
 
-## Run the API locally
+## Attributions
 
-Needs Python 3.13 and [uv](https://docs.astral.sh/uv/).
-
-```bash
-cd backend
-cp .env.example .env    # add free TomTom and Geoapify API keys
-uv sync
-uv run python manage.py runserver
-```
-
-Interactive API docs: http://localhost:8000/api/docs/
-
-## Tests
-
-```bash
-cd backend
-uv run pytest
-```
-
-Every provider is mocked, so the tests run offline.
+Routing by [TomTom](https://developer.tomtom.com/). Places [powered by Geoapify](https://www.geoapify.com/). [Weather data by Open-Meteo.com](https://open-meteo.com/) (CC BY 4.0). Map tiles by [OpenFreeMap](https://openfreemap.org/), © [OpenMapTiles](https://openmaptiles.org/), © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors.
