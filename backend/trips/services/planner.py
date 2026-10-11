@@ -19,6 +19,7 @@ from .risk import Assessment, assess_many
 from .routing import CandidateRoute, Place, find_routes
 from .sampling import Checkpoint, RouteProfile, build_profile, choose_spacing, place_checkpoints
 from .scoring import Recommendation, RouteScore, rank, recommend, score_route
+from .storm import SIMULATED, SimulatedStormProvider, storm_for
 from .timeutil import iso_utc
 from .weather import OpenMeteoProvider, WeatherProvider, conditions_at
 
@@ -94,8 +95,13 @@ def plan_trip(
     departure_s = departure.timestamp()
     checkpoints = [place_checkpoints(p, spacing, departure_s) for p in profiles]
 
+    # Simulated weather swaps only the provider: everything downstream runs unchanged.
+    storm = storm_for(checkpoints[0]) if trip.weather_source == SIMULATED else None
+    provider = (
+        SimulatedStormProvider(storm) if storm is not None else (weather or OpenMeteoProvider())
+    )
     with _stage(timings, "weather"):
-        series = (weather or OpenMeteoProvider()).series(
+        series = provider.series(
             [cell_of(c.lat, c.lon) for route_cps in checkpoints for c in route_cps]
         )
 
@@ -127,6 +133,7 @@ def plan_trip(
             "spacing_requested": trip.spacing_miles,
             "spacing_miles": spacing,
             "weather_source": trip.weather_source,
+            "storm": None if storm is None else storm.as_dict(),
         },
         "notices": notices,
         "routes": [

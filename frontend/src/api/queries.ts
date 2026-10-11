@@ -34,11 +34,14 @@ export function usePlan(trip: PlanRequest | null) {
 
 export function heatmapRequest(plan: PlanResponse | undefined): HeatmapRequest | null {
   if (!plan || plan.routes.length === 0) return null
+  const storm = plan.trip.storm
   return {
     routes: plan.routes.map((route) => ({ label: route.label, outline: route.outline })),
     departure_utc: plan.trip.departure_utc,
     load_lb: plan.trip.load_lb,
     weather_source: plan.trip.weather_source,
+    // The same storm the plan was scored with, so grid points and checkpoints agree.
+    storm: storm ? { lat: storm.lat, lon: storm.lon, at_utc: storm.at_utc } : null,
   }
 }
 

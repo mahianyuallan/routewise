@@ -263,6 +263,12 @@ components:
           allOf:
           - $ref: '#/components/schemas/WeatherSourceEnum'
           default: forecast
+        storm:
+          allOf:
+          - $ref: '#/components/schemas/StormRequest'
+          nullable: true
+          description: The plan's `trip.storm` centre and time; required with simulated
+            weather.
       required:
       - departure_utc
       - load_lb
@@ -440,6 +446,11 @@ components:
           allOf:
           - $ref: '#/components/schemas/WeatherSourceEnum'
           default: forecast
+          description: |-
+            `simulated` replaces the forecast with a labelled storm centred on Route A.
+
+            * `forecast` - forecast
+            * `simulated` - simulated
       required:
       - departure_local
       - destination
@@ -648,6 +659,73 @@ components:
         * `recommended` - recommended
         * `no_safe_route` - no_safe_route
         * `no_complete_route` - no_complete_route
+    StormEcho:
+      type: object
+      description: 'The simulated storm: its centre and time plus the constants that
+        shape it.'
+      properties:
+        lat:
+          type: number
+          format: double
+          maximum: 90
+          minimum: -90
+        lon:
+          type: number
+          format: double
+          maximum: 180
+          minimum: -180
+        at_utc:
+          type: string
+          format: date-time
+        peak_wind_mph:
+          type: number
+          format: double
+          description: Sustained wind at the centre.
+        peak_rain_in_hr:
+          type: number
+          format: double
+        wind_radius_miles:
+          type: number
+          format: double
+          description: Wind fades linearly to calm here.
+        rain_radius_miles:
+          type: number
+          format: double
+          description: Rain stops here.
+        drift_east_mph:
+          type: number
+          format: double
+      required:
+      - at_utc
+      - drift_east_mph
+      - lat
+      - lon
+      - peak_rain_in_hr
+      - peak_wind_mph
+      - rain_radius_miles
+      - wind_radius_miles
+    StormRequest:
+      type: object
+      description: Where the simulated storm's centre is at `at_utc`; it drifts east
+        from there.
+      properties:
+        lat:
+          type: number
+          format: double
+          maximum: 90
+          minimum: -90
+        lon:
+          type: number
+          format: double
+          maximum: 180
+          minimum: -180
+        at_utc:
+          type: string
+          format: date-time
+      required:
+      - at_utc
+      - lat
+      - lon
     TripEcho:
       type: object
       properties:
@@ -670,6 +748,12 @@ components:
           description: Spacing used, widened if the trip is long.
         weather_source:
           $ref: '#/components/schemas/WeatherSourceEnum'
+        storm:
+          allOf:
+          - $ref: '#/components/schemas/StormEcho'
+          nullable: true
+          description: Set with simulated weather; send lat, lon and at_utc back to
+            /api/heatmap/.
       required:
       - departure_utc
       - destination
@@ -677,6 +761,7 @@ components:
       - origin
       - spacing_miles
       - spacing_requested
+      - storm
       - timezone
       - weather_source
     Weather:
@@ -709,5 +794,8 @@ components:
     WeatherSourceEnum:
       enum:
       - forecast
+      - simulated
       type: string
-      description: '* `forecast` - forecast'
+      description: |-
+        * `forecast` - forecast
+        * `simulated` - simulated

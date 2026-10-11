@@ -12,9 +12,11 @@ from rest_framework import serializers
 from trips.services.geo import METERS_PER_MILE, haversine_m
 from trips.services.risk import MAX_LOAD_LB, RiskLevel
 from trips.services.sampling import DEFAULT_SPACING, SPACING_OPTIONS
+from trips.services.storm import SIMULATED
 
 LEVELS = [level.key for level in RiskLevel]
 ROUTE_SOURCES = ["fastest", "alternative", "eco", "short", "via"]
+WEATHER_SOURCES = ["forecast", SIMULATED]
 _TIMEZONES = available_timezones()
 
 
@@ -60,7 +62,11 @@ class PlanRequestSerializer(serializers.Serializer):
         min_value=0, max_value=MAX_LOAD_LB, help_text="Cargo weight in pounds, not gross weight."
     )
     spacing_miles = serializers.ChoiceField(choices=SPACING_OPTIONS, default=DEFAULT_SPACING)
-    weather_source = serializers.ChoiceField(choices=["forecast"], default="forecast")
+    weather_source = serializers.ChoiceField(
+        choices=WEATHER_SOURCES,
+        default="forecast",
+        help_text="`simulated` replaces the forecast with a labelled storm centred on Route A.",
+    )
 
     def validate_departure_local(self, value: str) -> datetime:
         try:
@@ -93,11 +99,31 @@ class HeatmapRouteSerializer(serializers.Serializer):
         return value
 
 
+class StormSerializer(serializers.Serializer):
+    """Where the simulated storm's centre is at `at_utc`; it drifts east from there."""
+
+    lat = serializers.FloatField(min_value=-90, max_value=90)
+    lon = serializers.FloatField(min_value=-180, max_value=180)
+    at_utc = serializers.DateTimeField()
+
+
 class HeatmapRequestSerializer(serializers.Serializer):
     routes = HeatmapRouteSerializer(many=True, min_length=1, max_length=3)
     departure_utc = serializers.DateTimeField()
     load_lb = serializers.IntegerField(min_value=0, max_value=MAX_LOAD_LB)
-    weather_source = serializers.ChoiceField(choices=["forecast"], default="forecast")
+    weather_source = serializers.ChoiceField(choices=WEATHER_SOURCES, default="forecast")
+    storm = StormSerializer(
+        required=False,
+        allow_null=True,
+        help_text="The plan's `trip.storm` centre and time; required with simulated weather.",
+    )
+
+    def validate(self, data: dict) -> dict:
+        if data["weather_source"] == SIMULATED and not data.get("storm"):
+            raise serializers.ValidationError(
+                {"storm": "Send the plan's storm centre and time with simulated weather."}
+            )
+        return data
 
 
 # Responses
@@ -120,6 +146,16 @@ class PlaceResultSerializer(serializers.Serializer):
     timezone = serializers.CharField(allow_null=True)
 
 
+class StormEchoSerializer(StormSerializer):
+    """The simulated storm: its centre and time plus the constants that shape it."""
+
+    peak_wind_mph = serializers.FloatField(help_text="Sustained wind at the centre.")
+    peak_rain_in_hr = serializers.FloatField()
+    wind_radius_miles = serializers.FloatField(help_text="Wind fades linearly to calm here.")
+    rain_radius_miles = serializers.FloatField(help_text="Rain stops here.")
+    drift_east_mph = serializers.FloatField()
+
+
 class TripEchoSerializer(serializers.Serializer):
     origin = PlaceResultSerializer()
     destination = PlaceResultSerializer()
@@ -128,7 +164,11 @@ class TripEchoSerializer(serializers.Serializer):
     load_lb = serializers.IntegerField()
     spacing_requested = serializers.IntegerField()
     spacing_miles = serializers.IntegerField(help_text="Spacing used, widened if the trip is long.")
-    weather_source = serializers.ChoiceField(choices=["forecast"])
+    weather_source = serializers.ChoiceField(choices=WEATHER_SOURCES)
+    storm = StormEchoSerializer(
+        allow_null=True,
+        help_text="Set with simulated weather; send lat, lon and at_utc back to /api/heatmap/.",
+    )
 
 
 class WeatherSerializer(serializers.Serializer):

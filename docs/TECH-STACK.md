@@ -604,20 +604,20 @@ Rank lexicographically: compare on the first rule, and move to the next only on 
 
 ## Simulated weather (S2, P1)
 
-**A labelled storm the reviewer can switch on, so every rule can be watched firing even on a calm review day.** It is the first P1 item after P0 is live.
+**A labelled storm the reviewer can switch on, so every rule can be watched firing even on a calm review day.** Built on 11 October 2026 as the first P1 item once P0 was live (`backend/trips/services/storm.py`).
 
-- **One code path:** the trip's `weather_source` is `forecast` (default) or `simulated`. The server swaps only the weather provider; checkpoints, risk, ranking and the heatmap run the same code.
+- **One code path:** the trip's `weather_source` is `forecast` (default) or `simulated`. The server swaps only the weather provider; checkpoints, risk, ranking and the heatmap run the same code, and no Open-Meteo call is made.
 - **Deterministic storm:** one storm, the same for the same trip.
-  - **Position:** centred where Route A will be halfway through its drive time, at the moment it gets there.
-  - **Strength:** peak sustained wind 52 mph and peak rain 0.8 in/hr, falling to calm about 150 miles from the centre.
-  - **Movement:** drifts east at 25 mph.
-  - **Conditions:** wind and rain only.
+  - **Position:** centred on Route A's checkpoint nearest the halfway point of its drive time, at that checkpoint's ETA, so one checkpoint always sits in the core whatever the spacing.
+  - **Strength:** peak sustained wind 52 mph and peak rain 0.8 in/hr at the centre. Wind fades linearly to calm 150 miles out; rain stops 60 miles out, so the wind rings (Severe to 20 miles, High to 49, Moderate to 78) are not swamped by Severe rain.
+  - **Movement:** drifts east at 25 mph. Hourly series follow Open-Meteo's conventions, so the checkpoint in the core reads a little under the peak unless its ETA is on the hour.
+  - **Conditions:** wind and rain only; gusts are wind × 1.3 and display-only.
 - **What it shows:** at those peaks, nothing reaches No Travel on weather alone, so the load rules do the visible work.
   - Raising the load from 25,000 to 35,000 lb turns the core from Severe to No Travel (rule 2).
   - At 45,000 lb the 35–44 mph ring goes from High to Severe (rule 3).
   - Rule 1 (55 mph and above), rain or snow No Travel, and every snow level are proven by the CI tests instead.
-- **Stateless:** the plan response carries the storm's parameters, and the heatmap call sends them back.
-- **Labelling:** "Simulated weather" on a banner, every route card, every tooltip and the legend, so it can never pass for a forecast.
+- **Stateless:** the plan response carries the storm in `trip.storm` (centre, time and the constants above), and the heatmap call sends the centre and time back, so grid points and checkpoints agree.
+- **Labelling:** "Simulated weather" on a banner, every route card, every tooltip, the legend, a badge on the map and a ring showing the storm's wind extent that follows the slider, so it can never pass for a forecast.
 
 ## Deliverables
 

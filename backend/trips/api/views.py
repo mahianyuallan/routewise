@@ -8,7 +8,8 @@ from trips.services.errors import InvalidTrip
 from trips.services.geocoding import search_places, timezone_for
 from trips.services.heatmap import build_heatmap
 from trips.services.planner import Trip, TripPlace, plan_trip
-from trips.services.weather import OpenMeteoProvider
+from trips.services.storm import SIMULATED, SimulatedStormProvider, Storm
+from trips.services.weather import OpenMeteoProvider, WeatherProvider
 
 from .serializers import (
     ErrorSerializer,
@@ -37,6 +38,16 @@ class PlacesThrottle(AnonRateThrottle):
 
 def _server_timing(timings: dict[str, float]) -> str:
     return ", ".join(f"{name};dur={ms:.0f}" for name, ms in timings.items())
+
+
+def _weather_provider(data: dict) -> WeatherProvider:
+    """The forecast, or the same simulated storm the plan was scored with."""
+    if data["weather_source"] != SIMULATED:
+        return OpenMeteoProvider()
+    storm = data["storm"]
+    return SimulatedStormProvider(
+        Storm(lat=storm["lat"], lon=storm["lon"], at_s=round(storm["at_utc"].timestamp()))
+    )
 
 
 def _trip_place(data: dict, role: str) -> TripPlace:
@@ -113,6 +124,6 @@ class HeatmapView(APIView):
             [route["outline"] for route in data["routes"]],
             data["departure_utc"],
             data["load_lb"],
-            OpenMeteoProvider(),
+            _weather_provider(data),
         )
         return Response(heatmap)

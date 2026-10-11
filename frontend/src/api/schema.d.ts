@@ -126,6 +126,8 @@ export interface components {
             load_lb: number;
             /** @default forecast */
             weather_source: components["schemas"]["WeatherSourceEnum"];
+            /** @description The plan's `trip.storm` centre and time; required with simulated weather. */
+            storm?: components["schemas"]["StormRequest"] | null;
         };
         HeatmapResponse: {
             /** @description 49 hours from departure. */
@@ -182,7 +184,13 @@ export interface components {
             load_lb: number;
             /** @default 25 */
             spacing_miles: components["schemas"]["SpacingMilesEnum"];
-            /** @default forecast */
+            /**
+             * @description `simulated` replaces the forecast with a labelled storm centred on Route A.
+             *
+             *     * `forecast` - forecast
+             *     * `simulated` - simulated
+             * @default forecast
+             */
             weather_source: components["schemas"]["WeatherSourceEnum"];
         };
         PlanResponse: {
@@ -265,6 +273,43 @@ export interface components {
          * @enum {string}
          */
         StatusEnum: "recommended" | "no_safe_route" | "no_complete_route";
+        /** @description The simulated storm: its centre and time plus the constants that shape it. */
+        StormEcho: {
+            /** Format: double */
+            lat: number;
+            /** Format: double */
+            lon: number;
+            /** Format: date-time */
+            at_utc: string;
+            /**
+             * Format: double
+             * @description Sustained wind at the centre.
+             */
+            peak_wind_mph: number;
+            /** Format: double */
+            peak_rain_in_hr: number;
+            /**
+             * Format: double
+             * @description Wind fades linearly to calm here.
+             */
+            wind_radius_miles: number;
+            /**
+             * Format: double
+             * @description Rain stops here.
+             */
+            rain_radius_miles: number;
+            /** Format: double */
+            drift_east_mph: number;
+        };
+        /** @description Where the simulated storm's centre is at `at_utc`; it drifts east from there. */
+        StormRequest: {
+            /** Format: double */
+            lat: number;
+            /** Format: double */
+            lon: number;
+            /** Format: date-time */
+            at_utc: string;
+        };
         TripEcho: {
             origin: components["schemas"]["PlaceResult"];
             destination: components["schemas"]["PlaceResult"];
@@ -277,6 +322,8 @@ export interface components {
             /** @description Spacing used, widened if the trip is long. */
             spacing_miles: number;
             weather_source: components["schemas"]["WeatherSourceEnum"];
+            /** @description Set with simulated weather; send lat, lon and at_utc back to /api/heatmap/. */
+            storm: components["schemas"]["StormEcho"] | null;
         };
         Weather: {
             /**
@@ -299,9 +346,10 @@ export interface components {
         };
         /**
          * @description * `forecast` - forecast
+         *     * `simulated` - simulated
          * @enum {string}
          */
-        WeatherSourceEnum: "forecast";
+        WeatherSourceEnum: "forecast" | "simulated";
     };
     responses: never;
     parameters: never;

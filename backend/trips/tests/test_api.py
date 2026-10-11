@@ -266,3 +266,80 @@ def test_openapi_schema_builds(client):
     response = client.get("/api/schema/")
     assert response.status_code == 200
     assert b"PlanResponse" in response.content
+
+
+def heatmap_for(client, planned: dict, load_lb: int, **changes):
+    storm = planned["trip"]["storm"]
+    return client.post(
+        "/api/heatmap/",
+        {
+            "routes": [{"label": r["label"], "outline": r["outline"]} for r in planned["routes"]],
+            "departure_utc": planned["trip"]["departure_utc"],
+            "load_lb": load_lb,
+            "weather_source": planned["trip"]["weather_source"],
+            "storm": storm and {k: storm[k] for k in ("lat", "lon", "at_utc")},
+            **changes,
+        },
+        format="json",
+    )
+
+
+def test_simulated_weather_puts_a_labelled_storm_on_route_a(client, http_mock):
+    mock_tomtom(http_mock)  # no Open-Meteo mock: a forecast call would fail the test
+    body = plan(client, weather_source="simulated", load_lb=25_000).json()
+    PlanResponseSerializer(data=body).is_valid(raise_exception=True)
+    assert body["trip"]["weather_source"] == "simulated"
+    storm = body["trip"]["storm"]
+    assert storm["peak_wind_mph"] == 52 and storm["drift_east_mph"] == 25
+    core = [c for c in body["routes"][0]["checkpoints"] if c["eta_utc"] == storm["at_utc"]]
+    assert len(core) == 1
+    assert (core[0]["lat"], core[0]["lon"]) == (storm["lat"], storm["lon"])
+    assert core[0]["level"] == "severe"
+    assert core[0]["weather"]["wind_mph"] >= 45
+    assert core[0]["weather"]["snow_in_hr"] == 0
+    assert all(weather.URL not in call.request.url for call in http_mock.calls)
+
+
+def test_the_same_trip_gets_the_same_storm_and_a_heavier_load_hits_rule_2(client, http_mock):
+    mock_tomtom(http_mock)
+    light = plan(client, weather_source="simulated", load_lb=25_000).json()
+    heavy = plan(client, weather_source="simulated", load_lb=35_000).json()
+    assert heavy["trip"]["storm"] == light["trip"]["storm"]
+    at_utc = heavy["trip"]["storm"]["at_utc"]
+    core = next(c for c in heavy["routes"][0]["checkpoints"] if c["eta_utc"] == at_utc)
+    assert (core["level"], core["load_rule"]) == ("no_travel", 2)
+    assert heavy["routes"][0]["score"]["has_no_travel"]
+
+
+def test_simulated_heatmap_rebuilds_the_storm_from_the_echoed_centre(client, http_mock):
+    mock_tomtom(http_mock)
+    planned = plan(client, weather_source="simulated").json()
+    response = heatmap_for(client, planned, load_lb=35_000)
+    assert response.status_code == 200, response.json()
+    body = response.json()
+    HeatmapResponseSerializer(data=body).is_valid(raise_exception=True)
+    assert max(body["levels"]) == 4  # the core is No Travel at 35,000 lb
+    assert all(weather.URL not in call.request.url for call in http_mock.calls)
+
+
+def test_simulated_heatmap_needs_the_storm(client, http_mock):
+    mock_tomtom(http_mock)
+    planned = plan(client, weather_source="simulated").json()
+    response = heatmap_for(client, planned, load_lb=20_000, storm=None)
+    assert response.status_code == 400
+    assert "storm" in response.json()
+
+
+def test_forecast_heatmap_ignores_a_stray_storm(client, http_mock):
+    mock_tomtom(http_mock)
+    mock_weather(http_mock, wind=30.0)
+    planned = plan(client).json()
+    assert planned["trip"]["storm"] is None
+    response = heatmap_for(
+        client,
+        planned,
+        load_lb=20_000,
+        storm={"lat": 32.8, "lon": -97.0, "at_utc": "2026-10-12T14:00:00Z"},
+    )
+    assert response.status_code == 200
+    assert set(response.json()["levels"]) == {1}

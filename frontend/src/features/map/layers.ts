@@ -14,6 +14,7 @@ import {
 } from '@/lib/risk'
 
 import { gridSpacingM, metersPerPixel, midpointAlong, type LonLat } from './geometry'
+import { METERS_PER_MILE, stormCentreAt } from './storm'
 
 export interface CheckpointDatum {
   checkpoint: Checkpoint
@@ -39,6 +40,7 @@ function withAlpha(rgb: Rgb, alpha: number): Rgba {
 }
 
 const HEATMAP_GRID_SPACINGS = 1.5
+const STORM_RGB: Rgb = [180, 83, 9]
 
 /**
  * In interleaved mode deck.gl draws a layer under the MapLibre layer named by `beforeId`,
@@ -52,6 +54,27 @@ export function buildLayers(inputs: LayerInputs): Layer[] {
   const { plan, heatmap, heatmapOn, hour, selectedRoute, zoom, beforeId, onSelectRoute } = inputs
   const layers: Layer[] = []
   if (!plan) return layers
+
+  // The simulated storm's wind extent, where it is at the slider's hour. It goes under the
+  // heatmap so its tint never shifts a risk colour; the legend names it.
+  const storm = plan.trip.weather_source === 'simulated' ? plan.trip.storm : null
+  if (storm) {
+    layers.push(
+      new ScatterplotLayer<LonLat>({
+        id: 'storm-extent',
+        ...under(beforeId),
+        data: [stormCentreAt(storm, heatmap?.hours[hour] ?? plan.trip.departure_utc)],
+        getPosition: (d) => d,
+        getRadius: storm.wind_radius_miles * METERS_PER_MILE,
+        radiusUnits: 'meters',
+        getFillColor: withAlpha(STORM_RGB, 22),
+        getLineColor: withAlpha(STORM_RGB, 210),
+        lineWidthUnits: 'pixels',
+        getLineWidth: 1.5,
+        stroked: true,
+      }),
+    )
+  }
 
   if (heatmap && heatmapOn && heatmap.points.length > 0) {
     const n = heatmap.points.length
@@ -186,7 +209,7 @@ export function buildLayers(inputs: LayerInputs): Layer[] {
 }
 
 /** Checkpoint tooltip: ETA in the origin's zone, the four readings, the level and its reason. */
-export function checkpointTooltip(info: PickingInfo, timeZone: string) {
+export function checkpointTooltip(info: PickingInfo, timeZone: string, simulated = false) {
   const datum = info.object as CheckpointDatum | undefined
   if (!datum || info.layer?.id !== 'checkpoints') return null
   const c = datum.checkpoint
@@ -194,8 +217,12 @@ export function checkpointTooltip(info: PickingInfo, timeZone: string) {
   const reading = (value: number | null | undefined, unit: string, digits: number) =>
     value === null || value === undefined ? '—' : `${formatNumber(value, digits)} ${unit}`
   const esc = (text: string) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;')
+  const source = simulated
+    ? `<div style="color:rgb(${STORM_RGB.join(',')});font-weight:600;margin-bottom:4px">Simulated weather, not a forecast</div>`
+    : ''
   return {
     html: `
+      ${source}
       <div style="font-weight:600;margin-bottom:4px">Route ${datum.route} · mile ${formatMiles(c.mile).replace(' mi', '')} · ETA ${esc(formatClock(c.eta_utc, timeZone))}</div>
       <div style="color:${levelRgbCss(c.level)};font-weight:600">${esc(levelLabel(c.level))}</div>
       <div style="margin:2px 0 6px">${esc(c.reason)}</div>

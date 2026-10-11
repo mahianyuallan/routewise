@@ -44,6 +44,7 @@ const plan: PlanResponse = {
     spacing_requested: 25,
     spacing_miles: 25,
     weather_source: 'forecast',
+    storm: null,
   },
   notices: [],
   routes: [
@@ -93,5 +94,30 @@ describe('RouteCards', () => {
     render(<RouteCards plan={plan} dimmed={false} />)
     await userEvent.click(screen.getAllByRole('button')[1])
     expect(useUiStore.getState().selectedRoute).toBe('A')
+  })
+
+  it('labels every card when the weather is simulated', () => {
+    const storm = {
+      lat: 36.2,
+      lon: -101.4,
+      at_utc: '2026-10-12T20:00:00Z',
+      peak_wind_mph: 52,
+      peak_rain_in_hr: 0.8,
+      wind_radius_miles: 150,
+      rain_radius_miles: 60,
+      drift_east_mph: 25,
+    }
+    render(
+      <RouteCards
+        plan={{ ...plan, trip: { ...plan.trip, weather_source: 'simulated', storm } }}
+        dimmed={false}
+      />,
+    )
+    expect(screen.getAllByText('Simulated weather')).toHaveLength(3)
+  })
+
+  it('has no simulated label on a forecast', () => {
+    render(<RouteCards plan={plan} dimmed={false} />)
+    expect(screen.queryByText('Simulated weather')).not.toBeInTheDocument()
   })
 })

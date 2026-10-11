@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { browserTimeZone, nextFullHourLocal } from '@/lib/format'
 
@@ -35,6 +36,7 @@ const schema = z
       .min(0, 'Load can’t be negative')
       .max(MAX_LOAD_LB, `Load is cargo weight, at most ${MAX_LOAD_LB.toLocaleString('en-US')} lb`),
     spacing_miles: z.union([z.literal(10), z.literal(25), z.literal(50)]),
+    weather_source: z.enum(['forecast', 'simulated']),
   })
   .refine(
     (v) =>
@@ -61,6 +63,7 @@ export function TripForm({ onPlan, planning }: Props) {
       departure_local: nextFullHourLocal(browserTimeZone()),
       load_lb: 20_000,
       spacing_miles: 25,
+      weather_source: 'forecast',
     },
   })
   const { errors, dirtyFields } = formState
@@ -88,7 +91,7 @@ export function TripForm({ onPlan, planning }: Props) {
       departure_local: values.departure_local,
       load_lb: values.load_lb,
       spacing_miles: values.spacing_miles,
-      weather_source: 'forecast',
+      weather_source: values.weather_source,
     })
   })
 
@@ -198,6 +201,28 @@ export function TripForm({ onPlan, planning }: Props) {
                   </ToggleGroup>
                 )}
               />
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3 rounded-md border p-3">
+            <Controller
+              control={control}
+              name="weather_source"
+              render={({ field }) => (
+                <Switch
+                  id="simulated"
+                  className="mt-0.5"
+                  checked={field.value === 'simulated'}
+                  onCheckedChange={(on) => field.onChange(on ? 'simulated' : 'forecast')}
+                />
+              )}
+            />
+            <div className="space-y-1">
+              <Label htmlFor="simulated">Simulated weather</Label>
+              <p className="text-xs text-muted-foreground">
+                Replaces the forecast with a labelled storm centred on Route A, so every risk level and the
+                load rules can be seen on a calm day.
+              </p>
             </div>
           </div>
 

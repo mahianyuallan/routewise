@@ -70,6 +70,17 @@ Rules 0 to 2 tie at zero. Rule 3 ties too, because 0.03 rounds to 0.0. Rule 4 de
 
 If every route has No Travel conditions, the ranking is still shown but the recommendation is replaced by "No safe route at this departure time", pointing at the heatmap to find a clearer window.
 
+## Simulated weather
+
+A calm review day leaves every route Low, so the form has a **Simulated weather** switch. It replaces the forecast with one made-up storm and runs the same checkpoint, risk, ranking and heatmap code; no forecast is fetched.
+
+- **Where:** centred on Route A's checkpoint nearest the halfway point of its drive time, at that checkpoint's ETA, drifting east at 25 mph. The same trip always gets the same storm.
+- **How strong:** sustained wind peaks at 52 mph and fades to calm 150 miles out; rain peaks at 0.8 in/hr and stops 60 miles out.
+- **What it shows:** nothing reaches No Travel on weather alone, so the load rules do the visible work. At 25,000 lb the core checkpoint is Severe, at 35,000 lb it turns No Travel (rule 2), and at 45,000 lb the High ring turns Severe (rule 3). On Dallas → Denver the storm-hit route drops to last and another route is recommended.
+- **Labelled everywhere:** a banner, every route card, every checkpoint tooltip, the legend and a badge on the map, where a ring shows the storm moving as the slider scrubs.
+
+The plan response carries the storm in `trip.storm`, and the heatmap request sends its centre and time back, so the API stays stateless. Rule 1 (55 mph and above), rain and snow No Travel, and every snow level are covered by the tests instead.
+
 ## Assumptions
 
 Where the brief leaves room, these are the calls made (each is a constant or a small function):
@@ -118,8 +129,8 @@ Environment variables are listed in [`backend/.env.example`](backend/.env.exampl
 ## Tests and CI
 
 ```bash
-cd backend && uv run pytest        # 129 tests, every provider mocked with recorded responses
-cd frontend && npm test            # 20 tests: risk palette, time formatting, geometry, route cards
+cd backend && uv run pytest        # 140 tests, every provider mocked with recorded responses
+cd frontend && npm test            # 27 tests: risk palette, time formatting, geometry, route cards, tooltips, storm drift
 ```
 
 [GitHub Actions](.github/workflows/ci.yml) runs Ruff, pytest with coverage, oxlint, Prettier, Vitest and the production build on every push, and checks that `requirements.txt` matches the lockfile and that the frontend's API types match the backend's schema.

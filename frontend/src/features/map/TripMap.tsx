@@ -65,6 +65,7 @@ export default function TripMap({ plan, heatmap }: Props) {
     [plan, heatmap, heatmapOn, hour, selectedRoute, zoom, beforeId, selectRoute],
   )
   const timeZone = plan?.trip.timezone ?? 'UTC'
+  const simulated = plan?.trip.weather_source === 'simulated'
 
   return (
     <MapGL
@@ -82,7 +83,11 @@ export default function TripMap({ plan, heatmap }: Props) {
       onMove={(event) => setZoom(Math.round(event.viewState.zoom * 4) / 4)}
     >
       <NavigationControl position="top-left" showCompass={false} />
-      <DeckGLOverlay interleaved layers={layers} getTooltip={(info) => checkpointTooltip(info, timeZone)} />
+      <DeckGLOverlay
+        interleaved
+        layers={layers}
+        getTooltip={(info) => checkpointTooltip(info, timeZone, simulated)}
+      />
     </MapGL>
   )
 }
