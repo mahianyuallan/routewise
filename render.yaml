@@ -1,0 +1,28 @@
+# Render Blueprint for the Django API (docs/adr/0001-render-free-api-with-keepalive.md).
+# In the Render dashboard: New + > Blueprint > this repo. Render reads this file and asks
+# only for the two provider keys. Everything here is the free tier; a card is never needed.
+services:
+  - type: web
+    name: routewise-api
+    runtime: python
+    plan: free
+    region: ohio
+    rootDir: backend
+    # Python 3.13 comes from backend/.python-version. No migrate step: the API has no models.
+    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
+    startCommand: gunicorn config.wsgi:application --workers 1 --threads 8 --timeout 120 --bind 0.0.0.0:$PORT
+    healthCheckPath: /api/health/
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
+      - key: NUM_PROXIES
+        value: "1"
+      # Vercel production and preview URLs of a project named "routewise".
+      - key: CORS_ALLOWED_ORIGIN_REGEXES
+        value: '^https://routewise[-a-z0-9]*\.vercel\.app$'
+      - key: TOMTOM_API_KEY
+        sync: false
+      - key: GEOAPIFY_API_KEY
+        sync: false
