@@ -1,7 +1,7 @@
-import { CloudLightningIcon, CloudOffIcon, LoaderCircleIcon, TriangleAlertIcon } from 'lucide-react'
+import { CloudLightningIcon, CloudOffIcon, LoaderCircleIcon } from 'lucide-react'
 import { Suspense, lazy, useEffect, useState } from 'react'
 
-import { errorMessage, isApiError, type PlanRequest, type PlanResponse } from '@/api/client'
+import { errorMessage, type PlanRequest, type PlanResponse } from '@/api/client'
 import { useHeatmap, usePlan, useServerStatus } from '@/api/queries'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { ForecastSlider } from '@/features/heatmap/ForecastSlider'
@@ -9,6 +9,7 @@ import { planSummary } from '@/features/layout/plan-summary'
 import { TripPanel } from '@/features/layout/TripPanel'
 import { Legend } from '@/features/map/Legend'
 import { MapErrorBoundary } from '@/features/map/MapErrorBoundary'
+import { PlanError } from '@/features/results/PlanError'
 import { Recommendation } from '@/features/results/Recommendation'
 import { RouteCards } from '@/features/results/RouteCards'
 import { TripForm } from '@/features/trip-form/TripForm'
@@ -173,30 +174,6 @@ function SimulatedWeatherBanner({ plan }: { plan: PlanResponse }) {
         {formatNumber(storm.drift_east_mph)} mph. The risk and load rules run exactly as they do on a
         forecast.
       </AlertDescription>
-    </Alert>
-  )
-}
-
-function PlanError({ error }: { error: unknown }) {
-  const api = isApiError(error) ? error : null
-  const title = api
-    ? ({
-        no_route: 'No truck route found',
-        invalid_trip: 'Check the trip',
-        validation: 'Check the trip',
-        provider_quota: `${api.provider ?? 'A service'} is out of free quota`,
-        provider_unavailable: `${api.provider ?? 'A service'} isn't responding`,
-        provider_rejected: `${api.provider ?? 'A service'} rejected the request`,
-        weather_units: 'Weather came back in the wrong units',
-        network: "Can't reach the server",
-      }[api.code] ?? 'Planning failed')
-    : 'Planning failed'
-  const message = api ? api.message : errorMessage(error)
-  return (
-    <Alert variant="destructive">
-      <TriangleAlertIcon />
-      <AlertTitle>{title}</AlertTitle>
-      <AlertDescription>{message}</AlertDescription>
     </Alert>
   )
 }

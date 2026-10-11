@@ -40,8 +40,12 @@ export class ApiError extends Error {
     this.fields = fields
   }
 
-  /** True when the request itself failed or the server was at fault, so a retry may help. */
+  /**
+   * True when the request itself failed or the server was at fault, so a retry may help.
+   * A provider's quota refusal is not: retrying at once only spends more of the quota.
+   */
   get retriable(): boolean {
+    if (this.code === 'provider_quota') return false
     return this.status === 0 || this.status >= 500
   }
 }
