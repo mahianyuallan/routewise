@@ -49,10 +49,6 @@ class Storm:
         lon = self.lon + hours * DRIFT_EAST_MPH / miles_per_degree_lon
         return np.full_like(lon, self.lat), lon
 
-    def miles_from_centre(self, lat: float, lon: float, t) -> np.ndarray:
-        centre_lat, centre_lon = self.centre_at(t)
-        return haversine_m(lat, lon, centre_lat, centre_lon) / METERS_PER_MILE
-
     def as_dict(self) -> dict:
         """What the plan response carries; the heatmap call sends lat, lon and at_utc back."""
         return {
@@ -98,11 +94,15 @@ class SimulatedStormProvider:
     def series(self, cells: Sequence[Cell]) -> dict[Cell, HourlySeries]:
         first = (self.storm.at_s // HOUR_S - SERIES_SPAN_H) * HOUR_S
         times = first + HOUR_S * np.arange(2 * SERIES_SPAN_H + 1)
+        # The centre's track is the same for every cell: at each stamp, and halfway through
+        # the hour before it.
+        stamp_lat, stamp_lon = self.storm.centre_at(times)
+        mid_lat, mid_lon = self.storm.centre_at(times - HOUR_S / 2)
         result = {}
         for cell in dict.fromkeys(cells):
             lat, lon = cell_center(cell)
-            at_stamp = self.storm.miles_from_centre(lat, lon, times)
-            mid_hour = self.storm.miles_from_centre(lat, lon, times - HOUR_S / 2)
+            at_stamp = haversine_m(lat, lon, stamp_lat, stamp_lon) / METERS_PER_MILE
+            mid_hour = haversine_m(lat, lon, mid_lat, mid_lon) / METERS_PER_MILE
             wind = PEAK_WIND_MPH * _fade(at_stamp, WIND_RADIUS_MILES)
             result[cell] = HourlySeries(
                 times=times,

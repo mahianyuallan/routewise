@@ -1,6 +1,7 @@
 """Outbound GET with one timeout policy and retries on 429, 5xx and timeouts."""
 
 import logging
+import re
 from collections.abc import Mapping, Sequence
 from typing import Any
 
@@ -35,20 +36,29 @@ def _reason(response: requests.Response) -> str:
     return ""
 
 
+def quota_window(reason: str) -> str | None:
+    """ "minute", "hour" or "day" when the provider names the limit it applied, else None.
+
+    Whole words only: "Daily limit exceeded, try again in 24 hours" is a daily limit.
+    """
+    words = set(re.findall(r"[a-z]+", reason.lower()))
+    for word, window in (("minutely", "minute"), ("hourly", "hour"), ("daily", "day")):
+        if word in words:
+            return window
+    return "day" if "tomorrow" in words else None
+
+
 def quota_message(provider: str, reason: str) -> str:
     """Say which limit was hit when the provider tells us, so the user knows how long to wait.
 
     Open-Meteo's free tier counts calls per minute, hour and day for each IP address, and a
     free Render instance shares its outbound addresses with other services.
     """
-    text = reason.lower()
-    if "minut" in text:
-        return f"{provider}'s per-minute limit was reached. Try again in a minute."
-    if "hour" in text:
-        return f"{provider}'s hourly free quota is used up. Try again later this hour."
-    if "dai" in text or "day" in text or "tomorrow" in text:
-        return f"{provider}'s daily free quota is used up. Try again tomorrow."
-    return f"{provider}'s free quota is used up for now. Try again later."
+    return {
+        "minute": f"{provider}'s per-minute limit was reached. Try again in a minute.",
+        "hour": f"{provider}'s hourly free quota is used up. Try again later this hour.",
+        "day": f"{provider}'s daily free quota is used up. Try again tomorrow.",
+    }.get(quota_window(reason), f"{provider}'s free quota is used up for now. Try again later.")
 
 
 def get(
@@ -75,8 +85,17 @@ def get(
             raise _Retryable(None) from exc
         except requests.ConnectionError as exc:
             raise _Retryable(None) from exc
-        if response.status_code == 429 or response.status_code >= 500:
-            raise _Retryable(response.status_code, _reason(response))
+        if response.status_code == 429:
+            reason = _reason(response)
+            if quota_window(reason) is not None:
+                # A named per-minute, hourly or daily limit won't lift within a few seconds,
+                # and each retry would spend more of it. Unnamed 429s, such as a per-second
+                # limit, are retried below.
+                log.warning("%s answered 429: %s", provider, reason)
+                raise ProviderQuotaExceeded(provider, quota_message(provider, reason))
+            raise _Retryable(429, reason)
+        if response.status_code >= 500:
+            raise _Retryable(response.status_code)
         return response
 
     try:

@@ -126,22 +126,29 @@ def test_repeated_429_is_reported_as_quota(http_mock):
 
 
 @pytest.mark.parametrize(
-    ("reason", "says"),
+    ("reason", "says", "calls"),
     [
         (
             "Minutely API request limit exceeded. Please try again in one minute.",
             "per-minute limit",
+            1,
         ),
         (
             "Hourly API request limit exceeded. Please try again in the next hour.",
             "hourly free quota",
+            1,
         ),
-        ("Daily API request limit exceeded. Please try again tomorrow.", "daily free quota"),
-        ("", "free quota is used up for now"),
+        ("Daily API request limit exceeded. Please try again tomorrow.", "daily free quota", 1),
+        # Whole words decide, not the first time unit mentioned.
+        ("Daily API request limit exceeded. Try again in 24 hours.", "daily free quota", 1),
+        ("Hourly limit exceeded, retry in 60 minutes.", "hourly free quota", 1),
+        # An unnamed 429, such as a per-second limit, is worth retrying.
+        ("Too many requests", "free quota is used up for now", 3),
     ],
 )
-def test_429_says_which_limit_open_meteo_hit(http_mock, reason, says):
+def test_429_names_the_limit_and_retries_only_an_unnamed_one(http_mock, reason, says, calls):
     http_mock.add(responses.GET, URL, status=429, json={"error": True, "reason": reason})
     with pytest.raises(ProviderQuotaExceeded) as info:
         OpenMeteoProvider().series([(328, -968)])
     assert says in str(info.value)
+    assert len(http_mock.calls) == calls
