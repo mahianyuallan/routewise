@@ -12,7 +12,7 @@ Weather-aware truck routing. RouteWise plans three truck routes between two US p
 |---|---|
 | App | [routewise-two.vercel.app](https://routewise-two.vercel.app) |
 | API | [routewise-api-h9q3.onrender.com/api/docs/](https://routewise-api-h9q3.onrender.com/api/docs/), the interactive OpenAPI page; health at [`/api/health/`](https://routewise-api-h9q3.onrender.com/api/health/) |
-| Walkthrough | _added on submission_ |
+| Walkthrough | [Loom walkthrough](https://www.loom.com/share/9ce81f93bcb44d37ba5ef1626dd56e60) |
 
 The API runs on a free Render instance kept awake by a monitor. If it has dozed off, the page says so and the first plan takes about a minute longer.
 

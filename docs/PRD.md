@@ -1,7 +1,7 @@
 # RouteWise PRD: Weather-Aware Truck Routing
 
 **Author:** Allan Mwenja · **Date:** 10 Oct 2026, revised 11 Oct 2026 · **Status:** v2, design review done · **For:** Spotter Full Stack Developer assessment
-**Links:** Brief: `fs-assessment-spotter.pdf` · Repo: [mahianyuallan/routewise](https://github.com/mahianyuallan/routewise) · Live app: TBD · Loom: TBD
+**Links:** Brief: `fs-assessment-spotter.pdf` · Repo: [mahianyuallan/routewise](https://github.com/mahianyuallan/routewise) · Live app: [routewise-two.vercel.app](https://routewise-two.vercel.app) · Loom: [walkthrough](https://www.loom.com/share/9ce81f93bcb44d37ba5ef1626dd56e60)
 **Companion docs:** how it's built: [TECH-STACK.md](TECH-STACK.md) · terms: [GLOSSARY.md](../GLOSSARY.md) · decisions: [docs/adr](adr/)
 
 ## 1. Summary
