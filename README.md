@@ -157,7 +157,7 @@ Measured on an 883-mile Dallas → Denver plan with 10-mile checkpoints (90 per 
 
 The Render rows were measured against the live deployment on 11 October 2026 from a client in Nairobi, so the totals include the round trip; five warm repeats landed between 4.0 and 4.6 s, inside the 10 s target. A sleeping instance adds about 40 s to the first request.
 
-What keeps it fast: the five routing calls run at once (TomTom's own alternatives took 11 to 14 s on this trip); weather is fetched per 0.1° cell and cached for an hour, so a changed load or departure re-plans in a few seconds; route geometry is simplified server-side; the map libraries load lazily after the form paints; and the slider only changes an index, so scrubbing 0 to 48 h makes no requests and allocates no data.
+What keeps it fast: the five routing calls run at once (TomTom's own alternatives took 11 to 14 s on this trip); weather is fetched per 0.1° cell and cached for an hour, so a changed load or departure re-plans in a few seconds; route geometry is simplified server-side; the map libraries load lazily after the form paints; and the slider only changes an index, so scrubbing 0 to 48 h makes no requests.
 
 ## Deploy
 
