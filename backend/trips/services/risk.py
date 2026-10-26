@@ -1,7 +1,7 @@
-"""Spotter's risk and load rules, as pure functions.
+"""The RouteWise risk and load rules, as pure functions.
 
 Ranges are half-open, so every value lands in exactly one level and a value on a
-shared edge takes the higher level (35 mph is High). The brief's strict ">1.00" for
+shared edge takes the higher level (35 mph is High). The spec's strict ">1.00" for
 rain and ">3.0" for snow keep exactly 1.00 and 3.0 at Severe.
 
 Values are rounded to the precision the UI shows (0.1 mph, 0.01 in/hr) before they

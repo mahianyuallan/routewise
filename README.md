@@ -2,7 +2,9 @@
 
 [![CI](https://github.com/mahianyuallan/routewise/actions/workflows/ci.yml/badge.svg)](https://github.com/mahianyuallan/routewise/actions/workflows/ci.yml)
 
-Weather-aware truck routing. RouteWise plans three truck routes between two US places, forecasts the weather at the hour the truck reaches each checkpoint, scores it with Spotter's risk and load rules, and recommends the safest route, with travel time as the tie-breaker. The map shows the routes, every checkpoint's risk and ETA, and a 48-hour risk heatmap of the corridor.
+Weather-aware truck routing. RouteWise plans three truck routes between two US places, forecasts the weather at the hour the truck reaches each checkpoint, scores it with explicit, fully tested risk and load rules, and recommends the safest route, with travel time as the tie-breaker. The map shows the routes, every checkpoint's risk and ETA, and a 48-hour risk heatmap of the corridor.
+
+**Stack:** Django 5 and Django REST Framework with drf-spectacular (OpenAPI), Shapely, pyproj and NumPy on the backend; React 19, TypeScript, Vite, TanStack Query, MapLibre GL, deck.gl and Tailwind CSS on the frontend. Routing by TomTom, places by Geoapify, forecasts by Open-Meteo. Deployed on Render (API) and Vercel (UI).
 
 ![Dallas to Denver at 38,000 lb: three routes, checkpoint risk and the corridor heatmap](docs/images/dallas-denver.png)
 
@@ -22,13 +24,13 @@ The API runs on a free Render instance kept awake by a monitor. If it has dozed 
 2. **Routes.** Five TomTom Routing v1 calls run in parallel in truck mode for a standard 53-ft tractor-trailer: fastest, eco, short, and two routes steered through soft via points either side of the straight line. Near-duplicates (90% of their length within 250 m) are dropped and the first three distinct routes are labelled A, B and C.
 3. **Checkpoints.** Every 10, 25 or 50 miles along each route, plus the origin and destination. Each checkpoint's ETA is the departure plus TomTom's truck- and traffic-aware travel time to that point, interpolated from the route's own distance/time profile. Each checkpoint stands for the road halfway to its neighbours, so miles add up to the route length.
 4. **Weather.** Open-Meteo hourly forecasts, fetched once per 0.1° cell and cached for an hour. Sustained wind is interpolated to the ETA; rain, showers, snow and gusts come from the hour the truck is in (an ETA of 14:20 reads the 15:00 slot, which covers 14:00 to 15:00).
-5. **Risk.** The brief's thresholds and load rules give each checkpoint a level and a plain-language reason.
+5. **Risk.** The spec's thresholds and load rules give each checkpoint a level and a plain-language reason.
 6. **Ranking.** Miles at each level, average risk and travel time rank the routes; the UI names the rule that decided it.
 7. **Heatmap.** A grid of at most 200 points within 25 miles of any route, classified with the same rules and load for the departure hour and the 48 hours after it. The slider changes an index into frames already in memory, so scrubbing makes no requests. A switch shows sustained wind, rain or snow instead of risk.
 
 ## Risk rules
 
-Thresholds from the brief, read as half-open ranges so every value lands in exactly one level. A value on a shared edge takes the higher level (35 mph is High); the brief's strict ">1.00" and ">3.0" keep exactly 1.00 in/hr of rain and 3.0 in/hr of snow at Severe.
+Thresholds from the spec, read as half-open ranges so every value lands in exactly one level. A value on a shared edge takes the higher level (35 mph is High); the spec's strict ">1.00" and ">3.0" keep exactly 1.00 in/hr of rain and 3.0 in/hr of snow at Severe.
 
 | Condition | Low | Moderate | High | Severe | No Travel |
 |---|---|---|---|---|---|
@@ -50,7 +52,7 @@ Every boundary in the table, all three load rules and the rounding edge cases ar
 
 Routes are compared on each rule in turn, moving to the next only on a tie:
 
-0. Fewest No Travel miles (added: the brief's list doesn't mention No Travel, and without it a route with 50 No Travel miles and no Severe miles would beat a route with 10 Severe miles)
+0. Fewest No Travel miles (added: the base list doesn't mention No Travel, and without it a route with 50 No Travel miles and no Severe miles would beat a route with 10 Severe miles)
 1. Fewest Severe miles
 2. Fewest High miles
 3. Lowest average risk (Low 0 … No Travel 4, weighted by miles)
@@ -92,7 +94,7 @@ The plan response carries the storm in `trip.storm`, and the heatmap request sen
 
 ## Assumptions
 
-Where the brief leaves room, these are the calls made (each is a constant or a small function):
+Where the spec leaves room, these are the calls made (each is a constant or a small function):
 
 - **Load is cargo weight**, 0 to 45,000 lb. TomTom gets the gross weight, load plus an assumed 35,000 lb tare, and a 53-ft rig profile (13'6" tall, 8'6" wide, about 72 ft long, 5 axles), so it avoids low bridges and weight-restricted roads. 45,000 + 35,000 lb is the 80,000 lb federal limit.
 - **Sustained wind** drives the rules; gusts are shown in the tooltip but not scored.
@@ -184,3 +186,11 @@ What keeps it fast: the five routing calls run at once (TomTom's own alternative
 ## Attributions
 
 Routing by [TomTom](https://developer.tomtom.com/). Places [powered by Geoapify](https://www.geoapify.com/). [Weather data by Open-Meteo.com](https://open-meteo.com/) (CC BY 4.0). Map tiles by [OpenFreeMap](https://openfreemap.org/), © [OpenMapTiles](https://openmaptiles.org/), © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors.
+
+## Author
+
+Designed and built by [Allan Mwenja Mahianyu](https://www.allanmwenja.com/), software engineer working on backend, payment and AI systems. More of my work is on [GitHub](https://github.com/mahianyuallan).
+
+## License
+
+[MIT](LICENSE)

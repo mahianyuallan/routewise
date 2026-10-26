@@ -1,6 +1,6 @@
 # RouteWise
 
-RouteWise compares truck routes by the weather each will meet at the hour the truck gets there, scored with Spotter's risk and load rules. These are the words the code, the UI and the docs use.
+RouteWise compares truck routes by the weather each will meet at the hour the truck gets there, scored with explicit risk and load rules. These are the words the code, the UI and the docs use.
 
 ## Language
 
@@ -59,7 +59,7 @@ The risk level one condition (wind, rain or snow) gives on its own, before the c
 _Avoid_: per-condition class, sub-level
 
 **Load rule**:
-One of the brief's three rules that raise the wind's risk level for very high wind or a heavy load.
+One of the spec's three rules that raise the wind's risk level for very high wind or a heavy load.
 _Avoid_: weight rule, load adjustment
 
 **Checkpoint reason**:

@@ -123,7 +123,7 @@ GET https://api.geoapify.com/v1/geocode/autocomplete
 - **Missing time zone:** Geoapify says some fields can be missing on some results. When `timezone.name` is absent, the server derives the zone from the coordinates with timezonefinder.
 - **Keystroke hygiene:** debounce about 300 ms, start at 3 characters, and cancel stale requests (TanStack Query passes an `AbortSignal` to your fetcher).
 - **Caching:** cache normalized queries in Django for 24 hours. Repeated demo searches then cost nothing.
-- **US only:** `filter=countrycode:us` is a hard filter (`bias` would only re-rank), matching the brief's US units: mph, inches, pounds. A place with no road link to the mainland, such as Hawaii, gets a clear "no road route" error.
+- **US only:** `filter=countrycode:us` is a hard filter (`bias` would only re-rank), matching the spec's US units: mph, inches, pounds. A place with no road link to the mainland, such as Hawaii, gets a clear "no road route" error.
 - **Attribution:** show a "Powered by Geoapify" link near the inputs, as their free-plan terms require.
 - **Key hygiene:** keep the key server-side. Geoapify also lets you restrict a key by referrer, origin or IP if you ever call it from the browser.
 
@@ -174,7 +174,7 @@ GET https://api.open-meteo.com/v1/forecast
 - **Cache per grid cell, not per URL.** Snap checkpoints and heatmap points to a 0.1° lattice, dedupe across routes, and cache each cell's hourly series in Django's cache for 60 minutes. URL-level caching like `requests-cache` rarely hits because coordinate lists differ between trips.
 - **Shared IPs:** Render's outbound IPs are shared with other services. If Open-Meteo applies its free limits per IP, a 429 can come from someone else's traffic. Retry with backoff, then say "Weather service busy, try again in a minute".
 - **Chunking:** send about 200 coordinates per request to keep GET URLs a safe length, and run chunks concurrently.
-- **Attribution:** put "Weather data by Open-Meteo.com" with a link in the UI footer. If Spotter ever used this commercially, they would need an Open-Meteo subscription.
+- **Attribution:** put "Weather data by Open-Meteo.com" with a link in the UI footer. A commercial deployment would need an Open-Meteo subscription.
 
 ### Client library
 
@@ -630,7 +630,7 @@ Rank lexicographically: compare on the first rule, and move to the next only on 
   - What it does, live links and an architecture diagram.
   - Stack with versions, local setup with uv and npm, environment variables and API endpoints.
   - Risk rules with the boundary decisions, and ranking with one worked example.
-  - Assumptions, including Spotter's three open questions: sustained wind, load rules as written, slider from departure.
+  - Assumptions, including the three open questions: sustained wind, load rules as written, slider from departure.
   - Performance numbers, how to run tests, known limitations and attributions.
 - **Known limitations to state:** forecasts are uncertain; wider sampling can miss short storms; ETAs assume continuous driving with no rest breaks; Render's 0.1 CPU slows the API; Open-Meteo's free API is for non-commercial use.
 - **Attributions:** TomTom, Geoapify ("Powered by Geoapify"), Open-Meteo under CC BY 4.0, and OpenStreetMap and OpenMapTiles through OpenFreeMap.

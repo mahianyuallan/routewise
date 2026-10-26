@@ -116,7 +116,7 @@ SPECTACULAR_SETTINGS = {
     "TITLE": "RouteWise API",
     "DESCRIPTION": (
         "Compares three truck routes by the weather each meets at the hour the truck gets "
-        "there, scored with Spotter's risk and load rules. Coordinates are [lon, lat]; "
+        "there, scored with explicit risk and load rules. Coordinates are [lon, lat]; "
         "times are UTC."
     ),
     "VERSION": "0.1.0",

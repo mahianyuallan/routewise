@@ -3,7 +3,7 @@ info:
   title: RouteWise API
   version: 0.1.0
   description: Compares three truck routes by the weather each meets at the hour the
-    truck gets there, scored with Spotter's risk and load rules. Coordinates are [lon,
+    truck gets there, scored with explicit risk and load rules. Coordinates are [lon,
     lat]; times are UTC.
 paths:
   /api/health/:
